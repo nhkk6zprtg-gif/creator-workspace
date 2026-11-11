@@ -2,60 +2,223 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CREATOR WORKSPACE</title>
-  <style>
-    body {
-      margin: 0;
-      background: #10141e;
-      color: #f5f5f5;
-      font-family: -apple-system, sans-serif;
-    }
-    header {
-      background: #1d2635;
-      padding: 30px 20px;
-      text-align: center;
-    }
-    h1 { font-size: 24px; }
-    main { padding: 20px; }
-    .card {
-      background: #202b3b;
-      border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 14px;
-    }
-    .card h2 { font-size: 18px; }
-    .card p { color: #aebccc; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CREATOR WORKSPACE</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10141e;color:#f5f5f5;font-family:-apple-system,"Helvetica Neue",sans-serif}
+header{background:#1d2635;text-align:center;padding:32px 16px}
+h1{font-size:25px;margin:0 0 10px}
+header p{color:#aeb9ca;margin:0}
+main{padding:20px;max-width:850px;margin:auto}
+h2{font-size:21px}
+button,input,select,textarea{font:inherit}
+button{background:#80b5ff;color:#10141e;border:0;border-radius:10px;padding:12px 16px;font-weight:bold;cursor:pointer}
+button.secondary{background:#344256;color:white}
+button.danger{background:#603541;color:white}
+input,select,textarea{width:100%;padding:12px;margin:6px 0 14px;background:#172132;border:1px solid #526078;border-radius:8px;color:white}
+label{display:block;color:#c9d3e2;font-size:14px}
+.card{background:#202b3b;border-radius:14px;padding:18px;margin:15px 0}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.muted{color:#aeb9ca;font-size:14px}
+.progress{height:12px;background:#3c4859;border-radius:20px;overflow:hidden;margin:12px 0}
+.bar{height:100%;background:#80b5ff;transition:width .2s}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tag{display:inline-block;background:#344256;padding:5px 10px;border-radius:20px;font-size:12px}
+.task{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #394557}
+.task input{width:20px;height:20px;margin:0;flex-shrink:0}
+.task span{flex:1}
+dialog{background:#202b3b;color:white;border:1px solid #526078;border-radius:14px;width:calc(100% - 24px);max-width:500px;max-height:90vh;overflow:auto}
+dialog::backdrop{background:#000a}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.empty{color:#aeb9ca;text-align:center;padding:35px 10px}
+</style>
 </head>
 <body>
-  <header>
-    <h1>CREATOR WORKSPACE</h1>
-    <p>クリエイター制作管理システム</p>
-  </header>
+<header>
+<h1>CREATOR WORKSPACE</h1>
+<p>クリエイター制作管理システム</p>
+</header>
+<main>
+<div class="top">
+<div>
+<h2>制作プロジェクト</h2>
+<p class="muted" id="count">0件</p>
+</div>
+<button onclick="openForm()">＋ 新規登録</button>
+</div>
+<p class="muted">試作版：データはこのブラウザ内に保存されます。チーム共有・バックアップは未対応です。</p>
+<div id="projects"></div>
+</main>
 
-  <main>
-    <div class="card">
-      <h2>制作プロジェクト</h2>
-      <p>衣装・ウィッグ・造形の進捗管理</p>
-    </div>
-    <div class="card">
-      <h2>制作カレンダー</h2>
-      <p>作業予定・納期管理</p>
-    </div>
-    <div class="card">
-      <h2>作業日報</h2>
-      <p>作業時間・進捗報告</p>
-    </div>
-    <div class="card">
-      <h2>3Dプリンター</h2>
-      <p>出力状況・材料管理</p>
-    </div>
-    <div class="card">
-      <h2>制作原価</h2>
-      <p>材料費・作業コスト管理</p>
-    </div>
-  </main>
+<dialog id="editor">
+<h2 id="formTitle">制作物を登録</h2>
+<form id="projectForm">
+<input type="hidden" id="projectId">
+<label>制作物の名前
+<input id="projectName" required placeholder="例：デスザーク衣装">
+</label>
+<label>制作カテゴリ
+<select id="category">
+<option>衣装</option>
+<option>ウィッグ</option>
+<option>3Dプリンター</option>
+<option>造形・小道具</option>
+<option>展示品</option>
+<option>その他</option>
+</select>
+</label>
+<label>担当者
+<input id="assignee" placeholder="例：ねこ">
+</label>
+<label>納期
+<input type="date" id="deadline">
+</label>
+<label>優先度
+<select id="priority">
+<option>通常</option>
+<option>高</option>
+<option>最優先</option>
+</select>
+</label>
+<label>備考
+<textarea id="notes" rows="3"></textarea>
+</label>
+<div class="actions">
+<button type="submit">保存する</button>
+<button type="button" class="secondary" onclick="editor.close()">キャンセル</button>
+</div>
+</form>
+</dialog>
+
+<script>
+const KEY="creator_workspace_projects_v1";
+const templates={
+"衣装":["資料確認","採寸・型紙","生地・材料調達","裁断","縫製","装飾","試着・調整","完成確認"],
+"ウィッグ":["資料確認","ウィッグ調達","カット","セット・造形","仕上げ","完成確認"],
+"3Dプリンター":["データ準備","スライス設定","材料準備","出力","サポート除去","研磨・塗装","完成確認"],
+"造形・小道具":["資料確認","設計・型紙","材料調達","造形","表面処理","塗装","完成確認"],
+"展示品":["企画","設計","材料調達","制作","組み立て","仕上げ","完成確認"],
+"その他":["準備","制作","確認","完成"]
+};
+let data=[];
+const editor=document.getElementById("editor");
+const form=document.getElementById("projectForm");
+
+function save(){
+try{
+localStorage.setItem(KEY,JSON.stringify(data));
+return true;
+}catch(e){
+alert("保存できませんでした。ブラウザの保存容量や設定を確認してください。");
+return false;
+}
+}
+function load(){
+try{
+const stored=JSON.parse(localStorage.getItem(KEY)||"[]");
+data=Array.isArray(stored)?stored:[];
+}catch(e){data=[];}
+}
+function escapeHTML(s){
+return String(s??"").replace(/[&<>"']/g,c=>({
+"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+})[c]);
+}
+function openForm(id){
+form.reset();
+document.getElementById("projectId").value="";
+document.getElementById("formTitle").textContent="制作物を登録";
+if(id){
+const p=data.find(x=>x.id===id);
+if(!p)return;
+document.getElementById("projectId").value=p.id;
+document.getElementById("projectName").value=p.name;
+document.getElementById("category").value=p.category;
+document.getElementById("assignee").value=p.assignee;
+document.getElementById("deadline").value=p.deadline;
+document.getElementById("priority").value=p.priority;
+document.getElementById("notes").value=p.notes;
+document.getElementById("formTitle").textContent="制作物を編集";
+}
+editor.showModal();
+}
+form.addEventListener("submit",e=>{
+e.preventDefault();
+const id=document.getElementById("projectId").value;
+const category=document.getElementById("category").value;
+const p={
+id:id||crypto.randomUUID(),
+name:document.getElementById("projectName").value.trim(),
+category,
+assignee:document.getElementById("assignee").value.trim(),
+deadline:document.getElementById("deadline").value,
+priority:document.getElementById("priority").value,
+notes:document.getElementById("notes").value.trim(),
+tasks:[]
+};
+if(!p.name)return;
+if(id){
+const old=data.find(x=>x.id===id);
+if(!old)return;
+p.tasks=old.category===category?old.tasks:
+templates[category].map(name=>({name,done:false}));
+data=data.map(x=>x.id===id?p:x);
+}else{
+p.tasks=templates[category].map(name=>({name,done:false}));
+data.push(p);
+}
+if(save()){editor.close();render();}
+});
+function toggleTask(id,index,checked){
+const p=data.find(x=>x.id===id);
+if(!p||!p.tasks[index])return;
+p.tasks[index].done=checked;
+if(save())render();
+}
+function deleteProject(id){
+if(!confirm("この制作物を削除しますか？"))return;
+const previous=data;
+data=data.filter(x=>x.id!==id);
+if(save())render();
+else data=previous;
+}
+function render(){
+const root=document.getElementById("projects");
+document.getElementById("count").textContent=data.length+"件の制作物";
+if(!data.length){
+root.innerHTML='<div class="empty">制作物はまだ登録されていません。<p>「＋ 新規登録」から始めましょう。</p></div>';
+return;
+}
+root.innerHTML=data.map(p=>{
+const done=p.tasks.filter(t=>t.done).length;
+const percent=p.tasks.length?Math.round(done/p.tasks.length*100):0;
+const overdue=p.deadline&&p.deadline<new Date().toLocaleDateString("sv-SE")&&percent<100;
+return `<section class="card">
+<div class="top">
+<h2>${escapeHTML(p.name)}</h2>
+<span class="tag">${escapeHTML(p.priority)}</span>
+</div>
+<p class="muted">${escapeHTML(p.category)} ／ 担当：${escapeHTML(p.assignee||"未設定")}</p>
+<p class="muted">納期：${escapeHTML(p.deadline||"未設定")}${overdue?"（期限超過）":""}</p>
+<div class="top"><strong>進捗率</strong><strong>${percent}%</strong></div>
+<div class="progress"><div class="bar" style="width:${percent}%"></div></div>
+<p class="muted">${done} / ${p.tasks.length} 工程完了</p>
+${p.tasks.map((t,i)=>`<label class="task">
+<input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${p.id}',${i},this.checked)">
+<span>${escapeHTML(t.name)}</span>
+</label>`).join("")}
+${p.notes?`<p class="muted">備考：${escapeHTML(p.notes)}</p>`:""}
+<div class="row">
+<button class="secondary" onclick="openForm('${p.id}')">編集</button>
+<button class="danger" onclick="deleteProject('${p.id}')">削除</button>
+</div>
+</section>`;
+}).join("");
+}
+load();
+render();
+</script>
 </body>
 </html>
