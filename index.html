@@ -15,6 +15,7 @@ main{padding:20px;max-width:850px;margin:auto}
 h2{font-size:21px}
 button,input,select,textarea{font:inherit}
 button{background:#80b5ff;color:#10141e;border:0;border-radius:10px;padding:12px 16px;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}
 button.secondary{background:#344256;color:white}
 button.danger{background:#603541;color:white}
 input,select,textarea{width:100%;padding:12px;margin:6px 0 14px;background:#172132;border:1px solid #526078;border-radius:8px;color:white}
@@ -33,6 +34,12 @@ dialog{background:#202b3b;color:white;border:1px solid #526078;border-radius:14p
 dialog::backdrop{background:#000a}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
 .empty{color:#aeb9ca;text-align:center;padding:35px 10px}
+.hidden{display:none!important}
+.message{padding:12px;border-radius:8px;background:#344256;margin:12px 0;white-space:pre-wrap}
+.error{background:#603541}
+#login{max-width:430px;margin:20px auto}
+#account{font-size:13px;overflow-wrap:anywhere}
+button:focus-visible,input:focus-visible{outline:2px solid #80b5ff}
 </style>
 </head>
 <body>
@@ -41,15 +48,40 @@ dialog::backdrop{background:#000a}
 <p>クリエイター制作管理システム</p>
 </header>
 <main>
+<section id="setup" class="card hidden">
+<h2>接続設定が必要です</h2>
+<p>ファイル内のSUPABASE_PUBLISHABLE_KEYにSupabaseのPublishable keyを設定してください。</p>
+</section>
+<section id="login" class="card hidden">
+<h2>ログイン</h2>
+<p class="muted">登録済みのアカウントでログインしてください。</p>
+<form id="loginForm">
+<label>メールアドレス
+<input type="email" id="email" autocomplete="username" required>
+</label>
+<label>パスワード
+<input type="password" id="password" autocomplete="current-password" required>
+</label>
+<button type="submit" id="loginButton">ログイン</button>
+</form>
+<p id="loginError" class="message error hidden" role="alert"></p>
+</section>
+<section id="workspace" class="hidden">
 <div class="top">
 <div>
 <h2>制作プロジェクト</h2>
 <p class="muted" id="count">0件</p>
+<p class="muted" id="account"></p>
 </div>
-<button onclick="openForm()">＋ 新規登録</button>
+<div class="row">
+<button onclick="openForm()" id="newButton">＋ 新規登録</button>
+<button class="secondary" id="reloadButton">更新</button>
+<button class="secondary" id="logoutButton">ログアウト</button>
 </div>
-<p class="muted">試作版：データはこのブラウザ内に保存されます。チーム共有・バックアップは未対応です。</p>
+</div>
+<p id="workspaceMessage" class="message hidden" role="status"></p>
 <div id="projects"></div>
+</section>
 </main>
 
 <dialog id="editor">
@@ -86,139 +118,338 @@ dialog::backdrop{background:#000a}
 <textarea id="notes" rows="3"></textarea>
 </label>
 <div class="actions">
-<button type="submit">保存する</button>
+<button type="submit" id="saveButton">保存する</button>
 <button type="button" class="secondary" onclick="editor.close()">キャンセル</button>
 </div>
 </form>
 </dialog>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const KEY="creator_workspace_projects_v1";
-const templates={
-"衣装":["資料確認","採寸・型紙","生地・材料調達","裁断","縫製","装飾","試着・調整","完成確認"],
-"ウィッグ":["資料確認","ウィッグ調達","カット","セット・造形","仕上げ","完成確認"],
-"3Dプリンター":["データ準備","スライス設定","材料準備","出力","サポート除去","研磨・塗装","完成確認"],
-"造形・小道具":["資料確認","設計・型紙","材料調達","造形","表面処理","塗装","完成確認"],
-"展示品":["企画","設計","材料調達","制作","組み立て","仕上げ","完成確認"],
-"その他":["準備","制作","確認","完成"]
-};
-let data=[];
-const editor=document.getElementById("editor");
-const form=document.getElementById("projectForm");
+'use strict';
 
-function save(){
-try{
-localStorage.setItem(KEY,JSON.stringify(data));
-return true;
-}catch(e){
-alert("保存できませんでした。ブラウザの保存容量や設定を確認してください。");
-return false;
+// 公開可能なPublishable keyだけを設定してください。
+const SUPABASE_URL='https://wnvmhxzqnrtlvaiislkh.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_dMpkJB_Pg6KQILD_T5tTOA_Bf5EsfdM';
+
+const templates={
+'衣装':['資料確認','採寸・型紙','生地・材料調達','裁断','縫製','装飾','試着・調整','完成確認'],
+'ウィッグ':['資料確認','ウィッグ調達','カット','セット・造形','仕上げ','完成確認'],
+'3Dプリンター':['データ準備','スライス設定','材料準備','出力','サポート除去','研磨・塗装','完成確認'],
+'造形・小道具':['資料確認','設計・型紙','材料調達','造形','表面処理','塗装','完成確認'],
+'展示品':['企画','設計','材料調達','制作','組み立て','仕上げ','完成確認'],
+'その他':['準備','制作','確認','完成']
+};
+
+const $=id=>document.getElementById(id);
+const editor=$('editor');
+const form=$('projectForm');
+let db=null;
+let data=[];
+let currentUser=null;
+let busy=false;
+
+function show(id){
+for(const section of ['setup','login','workspace']){
+$(section).classList.toggle('hidden',section!==id);
 }
 }
-function load(){
-try{
-const stored=JSON.parse(localStorage.getItem(KEY)||"[]");
-data=Array.isArray(stored)?stored:[];
-}catch(e){data=[];}
-}
+
 function escapeHTML(s){
-return String(s??"").replace(/[&<>"']/g,c=>({
-"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-})[c]);
+return String(s??'').replace(/[&<>"']/g,c=>({
+'&':'&amp;',
+'<':'&lt;',
+'>':'&gt;',
+'"':'&quot;',
+"'":'&#39;'
+}[c]));
 }
+
+function errText(e){
+return e?.message||'通信に失敗しました。時間をおいて再試行してください。';
+}
+
+function message(text,isError=false){
+const el=$('workspaceMessage');
+el.textContent=text;
+el.classList.toggle('hidden',!text);
+el.classList.toggle('error',isError);
+}
+
+function normalize(p){
+return {...p,tasks:Array.isArray(p.tasks)?p.tasks:[]};
+}
+
+function progress(p){
+const tasks=Array.isArray(p.tasks)?p.tasks:[];
+return tasks.length?
+Math.round(tasks.filter(t=>t.done).length/tasks.length*100):0;
+}
+
+function status(p){
+return progress(p)===100?'完了':
+p.tasks?.some(t=>t.done)?'進行中':'未着手';
+}
+
+function payload(p){
+return {
+name:p.name,
+category:p.category,
+assignee:p.assignee,
+deadline:p.deadline||null,
+priority:p.priority,
+notes:p.notes,
+tasks:p.tasks,
+progress:progress(p),
+status:status(p)
+};
+}
+
+async function refresh(){
+if(!currentUser)return;
+message('読み込み中…');
+const {data:rows,error}=await db.from('projects')
+.select('id,name,category,assignee,deadline,priority,notes,tasks,progress,status')
+.order('id',{ascending:false});
+
+if(error){
+message('読み込みエラー：'+errText(error),true);
+return;
+}
+data=(rows||[]).map(normalize);
+message('');
+render();
+}
+
 function openForm(id){
+if(busy)return;
 form.reset();
-document.getElementById("projectId").value="";
-document.getElementById("formTitle").textContent="制作物を登録";
-if(id){
-const p=data.find(x=>x.id===id);
+$('projectId').value='';
+$('formTitle').textContent='制作物を登録';
+
+if(id!==undefined){
+const p=data.find(x=>String(x.id)===String(id));
 if(!p)return;
-document.getElementById("projectId").value=p.id;
-document.getElementById("projectName").value=p.name;
-document.getElementById("category").value=p.category;
-document.getElementById("assignee").value=p.assignee;
-document.getElementById("deadline").value=p.deadline;
-document.getElementById("priority").value=p.priority;
-document.getElementById("notes").value=p.notes;
-document.getElementById("formTitle").textContent="制作物を編集";
+$('projectId').value=String(p.id);
+$('projectName').value=p.name||'';
+$('category').value=p.category||'その他';
+$('assignee').value=p.assignee||'';
+$('deadline').value=p.deadline||'';
+$('priority').value=p.priority||'通常';
+$('notes').value=p.notes||'';
+$('formTitle').textContent='制作物を編集';
 }
 editor.showModal();
 }
-form.addEventListener("submit",e=>{
+
+form.addEventListener('submit',async e=>{
 e.preventDefault();
-const id=document.getElementById("projectId").value;
-const category=document.getElementById("category").value;
+if(busy||!currentUser)return;
+
+const id=$('projectId').value;
+const category=$('category').value;
+const old=id?data.find(x=>String(x.id)===id):null;
+
 const p={
-id:id||crypto.randomUUID(),
-name:document.getElementById("projectName").value.trim(),
+name:$('projectName').value.trim(),
 category,
-assignee:document.getElementById("assignee").value.trim(),
-deadline:document.getElementById("deadline").value,
-priority:document.getElementById("priority").value,
-notes:document.getElementById("notes").value.trim(),
-tasks:[]
+assignee:$('assignee').value.trim(),
+deadline:$('deadline').value,
+priority:$('priority').value,
+notes:$('notes').value.trim(),
+tasks:old&&old.category===category?
+old.tasks:templates[category].map(name=>({name,done:false}))
 };
+
 if(!p.name)return;
-if(id){
-const old=data.find(x=>x.id===id);
-if(!old)return;
-p.tasks=old.category===category?old.tasks:
-templates[category].map(name=>({name,done:false}));
-data=data.map(x=>x.id===id?p:x);
-}else{
-p.tasks=templates[category].map(name=>({name,done:false}));
-data.push(p);
+
+busy=true;
+$('saveButton').disabled=true;
+
+try{
+const query=id?
+db.from('projects').update(payload(p)).eq('id',Number(id)):
+db.from('projects').insert(payload(p));
+
+const {error}=await query;
+if(error)throw error;
+
+editor.close();
+await refresh();
+}catch(err){
+alert('保存できませんでした：'+errText(err));
+}finally{
+busy=false;
+$('saveButton').disabled=false;
 }
-if(save()){editor.close();render();}
 });
-function toggleTask(id,index,checked){
-const p=data.find(x=>x.id===id);
+
+async function toggleTask(id,index,checked){
+if(busy)return;
+const p=data.find(x=>String(x.id)===String(id));
 if(!p||!p.tasks[index])return;
+
+const previous=p.tasks.map(t=>({...t}));
 p.tasks[index].done=checked;
-if(save())render();
+render();
+busy=true;
+
+try{
+const {error}=await db.from('projects')
+.update({
+tasks:p.tasks,
+progress:progress(p),
+status:status(p)
+})
+.eq('id',Number(id));
+
+if(error)throw error;
+await refresh();
+}catch(err){
+p.tasks=previous;
+render();
+message('工程の保存に失敗：'+errText(err),true);
+}finally{
+busy=false;
 }
-function deleteProject(id){
-if(!confirm("この制作物を削除しますか？"))return;
-const previous=data;
-data=data.filter(x=>x.id!==id);
-if(save())render();
-else data=previous;
 }
+
+async function deleteProject(id){
+if(busy||!confirm('この制作物を削除しますか？'))return;
+busy=true;
+
+try{
+const {error}=await db.from('projects')
+.delete()
+.eq('id',Number(id));
+
+if(error)throw error;
+await refresh();
+}catch(err){
+message('削除できませんでした：'+errText(err),true);
+}finally{
+busy=false;
+}
+}
+
 function render(){
-const root=document.getElementById("projects");
-document.getElementById("count").textContent=data.length+"件の制作物";
+const root=$('projects');
+$('count').textContent=data.length+'件の制作物';
+
 if(!data.length){
 root.innerHTML='<div class="empty">制作物はまだ登録されていません。<p>「＋ 新規登録」から始めましょう。</p></div>';
 return;
 }
+
 root.innerHTML=data.map(p=>{
-const done=p.tasks.filter(t=>t.done).length;
-const percent=p.tasks.length?Math.round(done/p.tasks.length*100):0;
-const overdue=p.deadline&&p.deadline<new Date().toLocaleDateString("sv-SE")&&percent<100;
+const tasks=p.tasks;
+const done=tasks.filter(t=>t.done).length;
+const percent=progress(p);
+const overdue=p.deadline&&
+p.deadline<new Date().toLocaleDateString('sv-SE')&&
+percent<100;
+
 return `<section class="card">
 <div class="top">
 <h2>${escapeHTML(p.name)}</h2>
-<span class="tag">${escapeHTML(p.priority)}</span>
+<span class="tag">${escapeHTML(p.priority||'通常')}</span>
 </div>
-<p class="muted">${escapeHTML(p.category)} ／ 担当：${escapeHTML(p.assignee||"未設定")}</p>
-<p class="muted">納期：${escapeHTML(p.deadline||"未設定")}${overdue?"（期限超過）":""}</p>
+<p class="muted">${escapeHTML(p.category||'その他')} ／ 担当：${escapeHTML(p.assignee||'未設定')}</p>
+<p class="muted">納期：${escapeHTML(p.deadline||'未設定')}${overdue?'（期限超過）':''}</p>
 <div class="top"><strong>進捗率</strong><strong>${percent}%</strong></div>
-<div class="progress"><div class="bar" style="width:${percent}%"></div></div>
-<p class="muted">${done} / ${p.tasks.length} 工程完了</p>
-${p.tasks.map((t,i)=>`<label class="task">
-<input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${p.id}',${i},this.checked)">
+<div class="progress">
+<div class="bar" style="width:${percent}%"></div>
+</div>
+<p class="muted">${done} / ${tasks.length} 工程完了</p>
+${tasks.map((t,i)=>`<label class="task">
+<input type="checkbox" ${t.done?'checked':''}
+onchange="toggleTask(${Number(p.id)},${i},this.checked)">
 <span>${escapeHTML(t.name)}</span>
-</label>`).join("")}
-${p.notes?`<p class="muted">備考：${escapeHTML(p.notes)}</p>`:""}
+</label>`).join('')}
+${p.notes?`<p class="muted">備考：${escapeHTML(p.notes)}</p>`:''}
 <div class="row">
-<button class="secondary" onclick="openForm('${p.id}')">編集</button>
-<button class="danger" onclick="deleteProject('${p.id}')">削除</button>
+<button class="secondary" onclick="openForm(${Number(p.id)})">編集</button>
+<button class="danger" onclick="deleteProject(${Number(p.id)})">削除</button>
 </div>
 </section>`;
-}).join("");
+}).join('');
 }
-load();
-render();
+
+$('loginForm').addEventListener('submit',async e=>{
+e.preventDefault();
+$('loginError').classList.add('hidden');
+$('loginButton').disabled=true;
+
+try{
+const {error}=await db.auth.signInWithPassword({
+email:$('email').value.trim(),
+password:$('password').value
+});
+if(error)throw error;
+$('password').value='';
+}catch(err){
+$('loginError').textContent='ログインできませんでした：'+errText(err);
+$('loginError').classList.remove('hidden');
+}finally{
+$('loginButton').disabled=false;
+}
+});
+
+$('reloadButton').addEventListener('click',refresh);
+
+$('logoutButton').addEventListener('click',async()=>{
+const {error}=await db.auth.signOut();
+if(error)message('ログアウト失敗：'+errText(error),true);
+});
+
+async function setSession(session){
+currentUser=session?.user||null;
+if(currentUser){
+$('account').textContent=currentUser.email||'';
+show('workspace');
+await refresh();
+}else{
+data=[];
+show('login');
+}
+}
+
+async function init(){
+if(SUPABASE_PUBLISHABLE_KEY==='PASTE_YOUR_SB_PUBLISHABLE_KEY_HERE'){
+show('setup');
+return;
+}
+
+if(!window.supabase?.createClient){
+show('setup');
+$('setup').insertAdjacentHTML('beforeend',
+'<p>Supabaseライブラリを読み込めませんでした。通信環境を確認してください。</p>');
+return;
+}
+
+db=window.supabase.createClient(
+SUPABASE_URL,
+SUPABASE_PUBLISHABLE_KEY
+);
+
+const {data:sessionData,error}=await db.auth.getSession();
+
+if(error){
+show('login');
+$('loginError').textContent=errText(error);
+$('loginError').classList.remove('hidden');
+}else{
+await setSession(sessionData.session);
+}
+
+db.auth.onAuthStateChange((event,session)=>{
+if(event==='SIGNED_IN'||event==='SIGNED_OUT'){
+setTimeout(()=>setSession(session),0);
+}
+});
+}
+
+init();
 </script>
 </body>
 </html>
