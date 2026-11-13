@@ -37,24 +37,30 @@ dialog::backdrop{background:#000a}
 .hidden{display:none!important}
 .message{padding:12px;border-radius:8px;background:#344256;margin:12px 0;white-space:pre-wrap}
 .error{background:#603541}
-#login{max-width:430px;margin:20px auto}
+#login,#reset{max-width:430px;margin:20px auto}
 #account{font-size:13px;overflow-wrap:anywhere}
 button:focus-visible,input:focus-visible{outline:2px solid #80b5ff}
+.linkbutton{background:transparent;color:#a9cbff;padding:8px 0;text-decoration:underline}
 </style>
 </head>
 <body>
+
 <header>
 <h1>CREATOR WORKSPACE</h1>
 <p>クリエイター制作管理システム</p>
 </header>
+
 <main>
+
 <section id="setup" class="card hidden">
 <h2>接続設定が必要です</h2>
-<p>ファイル内のSUPABASE_PUBLISHABLE_KEYにSupabaseのPublishable keyを設定してください。</p>
+<p id="setupMessage">Supabaseの接続設定を確認してください。</p>
 </section>
+
 <section id="login" class="card hidden">
 <h2>ログイン</h2>
 <p class="muted">登録済みのアカウントでログインしてください。</p>
+
 <form id="loginForm">
 <label>メールアドレス
 <input type="email" id="email" autocomplete="username" required>
@@ -64,8 +70,40 @@ button:focus-visible,input:focus-visible{outline:2px solid #80b5ff}
 </label>
 <button type="submit" id="loginButton">ログイン</button>
 </form>
-<p id="loginError" class="message error hidden" role="alert"></p>
+
+<p id="loginMessage" class="message hidden" role="status"></p>
+
+<button type="button" class="linkbutton" id="forgotButton">
+パスワードを忘れた・初めて設定する
+</button>
 </section>
+
+<section id="reset" class="card hidden">
+<h2>新しいパスワードを設定</h2>
+<p class="muted">
+メールの再設定リンクからアクセスしました。
+新しいパスワードを設定してください。
+</p>
+
+<form id="resetForm">
+<label>新しいパスワード
+<input type="password" id="newPassword"
+autocomplete="new-password" minlength="8" required>
+</label>
+
+<label>新しいパスワード（確認）
+<input type="password" id="confirmPassword"
+autocomplete="new-password" minlength="8" required>
+</label>
+
+<button type="submit" id="resetButton">
+パスワードを保存する
+</button>
+</form>
+
+<p id="resetMessage" class="message hidden" role="status"></p>
+</section>
+
 <section id="workspace" class="hidden">
 <div class="top">
 <div>
@@ -79,18 +117,23 @@ button:focus-visible,input:focus-visible{outline:2px solid #80b5ff}
 <button class="secondary" id="logoutButton">ログアウト</button>
 </div>
 </div>
+
 <p id="workspaceMessage" class="message hidden" role="status"></p>
 <div id="projects"></div>
 </section>
+
 </main>
 
 <dialog id="editor">
 <h2 id="formTitle">制作物を登録</h2>
+
 <form id="projectForm">
 <input type="hidden" id="projectId">
+
 <label>制作物の名前
 <input id="projectName" required placeholder="例：デスザーク衣装">
 </label>
+
 <label>制作カテゴリ
 <select id="category">
 <option>衣装</option>
@@ -101,12 +144,15 @@ button:focus-visible,input:focus-visible{outline:2px solid #80b5ff}
 <option>その他</option>
 </select>
 </label>
+
 <label>担当者
 <input id="assignee" placeholder="例：ねこ">
 </label>
+
 <label>納期
 <input type="date" id="deadline">
 </label>
+
 <label>優先度
 <select id="priority">
 <option>通常</option>
@@ -114,12 +160,16 @@ button:focus-visible,input:focus-visible{outline:2px solid #80b5ff}
 <option>最優先</option>
 </select>
 </label>
+
 <label>備考
 <textarea id="notes" rows="3"></textarea>
 </label>
+
 <div class="actions">
 <button type="submit" id="saveButton">保存する</button>
-<button type="button" class="secondary" onclick="editor.close()">キャンセル</button>
+<button type="button" class="secondary" onclick="editor.close()">
+キャンセル
+</button>
 </div>
 </form>
 </dialog>
@@ -128,9 +178,10 @@ button:focus-visible,input:focus-visible{outline:2px solid #80b5ff}
 <script>
 'use strict';
 
-// 公開可能なPublishable keyだけを設定してください。
 const SUPABASE_URL='https://wnvmhxzqnrtlvaiislkh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_dMpkJB_Pg6KQILD_T5tTOA_Bf5EsfdM';
+
+const SITE_URL='https://nhkk6zprtg-gif.github.io/creator-workspace/';
 
 const templates={
 '衣装':['資料確認','採寸・型紙','生地・材料調達','裁断','縫製','装飾','試着・調整','完成確認'],
@@ -144,13 +195,23 @@ const templates={
 const $=id=>document.getElementById(id);
 const editor=$('editor');
 const form=$('projectForm');
+
 let db=null;
 let data=[];
 let currentUser=null;
 let busy=false;
+let recoveryMode=false;
+let refreshVersion=0;
+
+const initialHash=window.location.hash;
+const initialSearch=window.location.search;
+
+const recoveryLink=
+initialHash.includes('type=recovery')||
+initialSearch.includes('type=recovery');
 
 function show(id){
-for(const section of ['setup','login','workspace']){
+for(const section of ['setup','login','reset','workspace']){
 $(section).classList.toggle('hidden',section!==id);
 }
 }
@@ -166,18 +227,25 @@ return String(s??'').replace(/[&<>"']/g,c=>({
 }
 
 function errText(e){
-return e?.message||'通信に失敗しました。時間をおいて再試行してください。';
+return e?.message||'通信に失敗しました。もう一度お試しください。';
 }
 
-function message(text,isError=false){
-const el=$('workspaceMessage');
+function setMessage(id,text,isError=false){
+const el=$(id);
 el.textContent=text;
 el.classList.toggle('hidden',!text);
 el.classList.toggle('error',isError);
 }
 
+function message(text,isError=false){
+setMessage('workspaceMessage',text,isError);
+}
+
 function normalize(p){
-return {...p,tasks:Array.isArray(p.tasks)?p.tasks:[]};
+return {
+...p,
+tasks:Array.isArray(p.tasks)?p.tasks:[]
+};
 }
 
 function progress(p){
@@ -206,23 +274,33 @@ status:status(p)
 }
 
 async function refresh(){
-if(!currentUser)return;
+if(!currentUser||recoveryMode)return;
+
+const version=++refreshVersion;
 message('読み込み中…');
+
+try{
 const {data:rows,error}=await db.from('projects')
 .select('id,name,category,assignee,deadline,priority,notes,tasks,progress,status')
 .order('id',{ascending:false});
 
-if(error){
-message('読み込みエラー：'+errText(error),true);
-return;
-}
+if(error)throw error;
+
+if(version!==refreshVersion||!currentUser||recoveryMode)return;
+
 data=(rows||[]).map(normalize);
 message('');
 render();
+}catch(err){
+if(version===refreshVersion){
+message('読み込みエラー：'+errText(err),true);
+}
+}
 }
 
 function openForm(id){
-if(busy)return;
+if(busy||!currentUser)return;
+
 form.reset();
 $('projectId').value='';
 $('formTitle').textContent='制作物を登録';
@@ -230,6 +308,7 @@ $('formTitle').textContent='制作物を登録';
 if(id!==undefined){
 const p=data.find(x=>String(x.id)===String(id));
 if(!p)return;
+
 $('projectId').value=String(p.id);
 $('projectName').value=p.name||'';
 $('category').value=p.category||'その他';
@@ -239,6 +318,7 @@ $('priority').value=p.priority||'通常';
 $('notes').value=p.notes||'';
 $('formTitle').textContent='制作物を編集';
 }
+
 editor.showModal();
 }
 
@@ -268,11 +348,15 @@ $('saveButton').disabled=true;
 
 try{
 const query=id?
-db.from('projects').update(payload(p)).eq('id',Number(id)):
-db.from('projects').insert(payload(p));
+db.from('projects').update(payload(p)).eq('id',Number(id)).select('id'):
+db.from('projects').insert(payload(p)).select('id');
 
-const {error}=await query;
+const {data:result,error}=await query;
 if(error)throw error;
+
+if(!result?.length){
+throw new Error('保存対象が見つかりません。アクセス権限を確認してください。');
+}
 
 editor.close();
 await refresh();
@@ -285,7 +369,8 @@ $('saveButton').disabled=false;
 });
 
 async function toggleTask(id,index,checked){
-if(busy)return;
+if(busy||!currentUser)return;
+
 const p=data.find(x=>String(x.id)===String(id));
 if(!p||!p.tasks[index])return;
 
@@ -295,15 +380,21 @@ render();
 busy=true;
 
 try{
-const {error}=await db.from('projects')
+const {data:result,error}=await db.from('projects')
 .update({
 tasks:p.tasks,
 progress:progress(p),
 status:status(p)
 })
-.eq('id',Number(id));
+.eq('id',Number(id))
+.select('id');
 
 if(error)throw error;
+
+if(!result?.length){
+throw new Error('更新対象が見つかりません。');
+}
+
 await refresh();
 }catch(err){
 p.tasks=previous;
@@ -315,15 +406,23 @@ busy=false;
 }
 
 async function deleteProject(id){
-if(busy||!confirm('この制作物を削除しますか？'))return;
+if(busy||!currentUser)return;
+if(!confirm('この制作物を削除しますか？'))return;
+
 busy=true;
 
 try{
-const {error}=await db.from('projects')
+const {data:result,error}=await db.from('projects')
 .delete()
-.eq('id',Number(id));
+.eq('id',Number(id))
+.select('id');
 
 if(error)throw error;
+
+if(!result?.length){
+throw new Error('削除対象が見つかりません。');
+}
+
 await refresh();
 }catch(err){
 message('削除できませんでした：'+errText(err),true);
@@ -345,28 +444,51 @@ root.innerHTML=data.map(p=>{
 const tasks=p.tasks;
 const done=tasks.filter(t=>t.done).length;
 const percent=progress(p);
-const overdue=p.deadline&&
-p.deadline<new Date().toLocaleDateString('sv-SE')&&
-percent<100;
+
+const today=new Date();
+const todayText=[
+today.getFullYear(),
+String(today.getMonth()+1).padStart(2,'0'),
+String(today.getDate()).padStart(2,'0')
+].join('-');
+
+const overdue=p.deadline&&p.deadline<todayText&&percent<100;
 
 return `<section class="card">
 <div class="top">
 <h2>${escapeHTML(p.name)}</h2>
 <span class="tag">${escapeHTML(p.priority||'通常')}</span>
 </div>
-<p class="muted">${escapeHTML(p.category||'その他')} ／ 担当：${escapeHTML(p.assignee||'未設定')}</p>
-<p class="muted">納期：${escapeHTML(p.deadline||'未設定')}${overdue?'（期限超過）':''}</p>
-<div class="top"><strong>進捗率</strong><strong>${percent}%</strong></div>
+
+<p class="muted">
+${escapeHTML(p.category||'その他')} ／
+担当：${escapeHTML(p.assignee||'未設定')}
+</p>
+
+<p class="muted">
+納期：${escapeHTML(p.deadline||'未設定')}
+${overdue?'（期限超過）':''}
+</p>
+
+<div class="top">
+<strong>進捗率</strong>
+<strong>${percent}%</strong>
+</div>
+
 <div class="progress">
 <div class="bar" style="width:${percent}%"></div>
 </div>
+
 <p class="muted">${done} / ${tasks.length} 工程完了</p>
+
 ${tasks.map((t,i)=>`<label class="task">
 <input type="checkbox" ${t.done?'checked':''}
 onchange="toggleTask(${Number(p.id)},${i},this.checked)">
 <span>${escapeHTML(t.name)}</span>
 </label>`).join('')}
+
 ${p.notes?`<p class="muted">備考：${escapeHTML(p.notes)}</p>`:''}
+
 <div class="row">
 <button class="secondary" onclick="openForm(${Number(p.id)})">編集</button>
 <button class="danger" onclick="deleteProject(${Number(p.id)})">削除</button>
@@ -375,9 +497,12 @@ ${p.notes?`<p class="muted">備考：${escapeHTML(p.notes)}</p>`:''}
 }).join('');
 }
 
+// ログイン
 $('loginForm').addEventListener('submit',async e=>{
 e.preventDefault();
-$('loginError').classList.add('hidden');
+if(!db)return;
+
+setMessage('loginMessage','');
 $('loginButton').disabled=true;
 
 try{
@@ -385,68 +510,214 @@ const {error}=await db.auth.signInWithPassword({
 email:$('email').value.trim(),
 password:$('password').value
 });
+
 if(error)throw error;
+
 $('password').value='';
 }catch(err){
-$('loginError').textContent='ログインできませんでした：'+errText(err);
-$('loginError').classList.remove('hidden');
+setMessage('loginMessage',
+'ログインできませんでした：'+errText(err),true);
 }finally{
 $('loginButton').disabled=false;
+}
+});
+
+// パスワード再設定メール送信
+$('forgotButton').addEventListener('click',async()=>{
+if(!db)return;
+
+let email=$('email').value.trim();
+
+if(!email){
+email=prompt('登録済みのメールアドレスを入力してください。')||'';
+email=email.trim();
+}
+
+if(!email)return;
+
+if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+setMessage('loginMessage','メールアドレスの形式を確認してください。',true);
+return;
+}
+
+$('email').value=email;
+$('forgotButton').disabled=true;
+
+try{
+const {error}=await db.auth.resetPasswordForEmail(email,{
+redirectTo:SITE_URL
+});
+
+if(error)throw error;
+
+setMessage('loginMessage',
+'再設定メールを送信しました。\nメール内の「Reset password」を開いて、新しいパスワードを設定してください。\n届かない場合は迷惑メールも確認してください。');
+}catch(err){
+setMessage('loginMessage',
+'再設定メールを送れませんでした：'+errText(err),true);
+}finally{
+$('forgotButton').disabled=false;
+}
+});
+
+// 新しいパスワードの登録
+$('resetForm').addEventListener('submit',async e=>{
+e.preventDefault();
+
+if(!db||!recoveryMode)return;
+
+const password=$('newPassword').value;
+const confirmation=$('confirmPassword').value;
+
+if(password.length<8){
+setMessage('resetMessage',
+'パスワードは8文字以上にしてください。',true);
+return;
+}
+
+if(password!==confirmation){
+setMessage('resetMessage',
+'確認用パスワードが一致していません。',true);
+return;
+}
+
+$('resetButton').disabled=true;
+setMessage('resetMessage','保存しています…');
+
+try{
+const {error}=await db.auth.updateUser({
+password:password
+});
+
+if(error)throw error;
+
+$('newPassword').value='';
+$('confirmPassword').value='';
+
+recoveryMode=false;
+
+const {error:signOutError}=await db.auth.signOut();
+if(signOutError)throw signOutError;
+
+currentUser=null;
+data=[];
+show('login');
+
+setMessage('loginMessage',
+'パスワードを設定しました。\n登録済みメールアドレスと新しいパスワードでログインしてください。');
+
+window.history.replaceState(null,'',window.location.pathname);
+}catch(err){
+setMessage('resetMessage',
+'パスワードの設定に失敗しました：'+errText(err),true);
+}finally{
+$('resetButton').disabled=false;
 }
 });
 
 $('reloadButton').addEventListener('click',refresh);
 
 $('logoutButton').addEventListener('click',async()=>{
+if(!db)return;
+
 const {error}=await db.auth.signOut();
-if(error)message('ログアウト失敗：'+errText(error),true);
+
+if(error){
+message('ログアウト失敗：'+errText(error),true);
+}
 });
 
 async function setSession(session){
 currentUser=session?.user||null;
+
+if(recoveryMode){
+show('reset');
+return;
+}
+
 if(currentUser){
 $('account').textContent=currentUser.email||'';
 show('workspace');
 await refresh();
 }else{
+refreshVersion++;
 data=[];
 show('login');
 }
 }
 
 async function init(){
-if(SUPABASE_PUBLISHABLE_KEY==='PASTE_YOUR_SB_PUBLISHABLE_KEY_HERE'){
-show('setup');
-return;
-}
-
 if(!window.supabase?.createClient){
 show('setup');
-$('setup').insertAdjacentHTML('beforeend',
-'<p>Supabaseライブラリを読み込めませんでした。通信環境を確認してください。</p>');
+$('setupMessage').textContent=
+'Supabaseライブラリを読み込めませんでした。通信環境を確認してください。';
 return;
 }
 
+try{
 db=window.supabase.createClient(
 SUPABASE_URL,
 SUPABASE_PUBLISHABLE_KEY
 );
 
+// パスワード再設定リンクを最優先で処理
+recoveryMode=recoveryLink;
+
+db.auth.onAuthStateChange((event,session)=>{
+// 認証イベント内で直接データベース通信しない
+setTimeout(()=>{
+if(event==='PASSWORD_RECOVERY'){
+recoveryMode=true;
+currentUser=session?.user||null;
+show('reset');
+return;
+}
+
+if(event==='SIGNED_OUT'){
+if(recoveryMode)return;
+setSession(null);
+return;
+}
+
+if(event==='INITIAL_SESSION'||
+event==='SIGNED_IN'){
+setSession(session);
+}
+},0);
+});
+
 const {data:sessionData,error}=await db.auth.getSession();
 
 if(error){
+if(recoveryMode){
 show('login');
-$('loginError').textContent=errText(error);
-$('loginError').classList.remove('hidden');
+recoveryMode=false;
+setMessage('loginMessage',
+'再設定リンクを確認できませんでした。新しい再設定メールを送ってください。',true);
 }else{
-await setSession(sessionData.session);
+show('login');
+setMessage('loginMessage',errText(error),true);
+}
+return;
 }
 
-db.auth.onAuthStateChange((event,session)=>{
-if(event==='SIGNED_IN'||event==='SIGNED_OUT'){
-setTimeout(()=>setSession(session),0);
+await setSession(sessionData.session);
+
+const params=new URLSearchParams(window.location.hash.slice(1));
+const urlError=params.get('error_description');
+
+if(urlError){
+recoveryMode=false;
+show('login');
+setMessage('loginMessage',
+'認証リンクが無効または期限切れです。再設定メールを送り直してください。',true);
 }
-});
+
+}catch(err){
+show('setup');
+$('setupMessage').textContent=
+'初期化に失敗しました：'+errText(err);
+}
 }
 
 init();
