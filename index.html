@@ -149,6 +149,16 @@ label{color:#d0d0d4}
 #dashboard .compact-agenda>summary:hover{background:#2e2e33!important}
 #dashboard .agenda-summary-count{color:#c7c7cf!important}
 @media(max-width:600px){#workspace::before{top:-12px;right:0;width:125px;height:145px;opacity:.50}#workspace>.top h2{max-width:calc(100% - 110px)}}
+
+/* Fix: keep project heading horizontal beside the decorative line art */
+#workspace>.top>div:first-child{flex:1 1 100%;min-width:0;padding-right:clamp(120px,29vw,190px)}
+#workspace>.top>div:first-child h2{max-width:none!important;width:auto;white-space:nowrap;word-break:keep-all;overflow-wrap:normal;font-size:clamp(18px,4.8vw,22px);line-height:1.4}
+#workspace>.top>.row{flex:1 1 100%;min-width:0}
+@media(max-width:600px){
+ #workspace>.top>div:first-child{padding-right:135px}
+ #workspace>.top>div:first-child h2{font-size:19px}
+ #workspace::before{top:0;right:0;width:122px;height:143px}
+}
 </style></head><body><header><h1>CREATOR WORKSPACE</h1><p>クリエイター制作管理システム</p></header><main>
 <section id="setup" class="card hidden"><h2>接続設定が必要です</h2><p id="setupMessage"></p></section>
 <section id="login" class="card hidden"><h2>ログイン</h2><form id="loginForm"><label>メールアドレス<input id="email" type="email" autocomplete="username" required></label><label>パスワード<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton">ログイン</button></form><p id="loginMessage" class="message hidden" role="status"></p><button type="button" class="linkbutton" id="forgotButton">パスワードを忘れた・初めて設定する</button></section>
