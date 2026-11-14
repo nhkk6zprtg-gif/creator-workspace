@@ -242,14 +242,52 @@ dialog,#editor{background:#19171c!important;border-color:#514a56!important}
  #workspace>.top>div:first-child{padding-right:125px!important}
  #workspace::before{opacity:.43!important}
 }
-</style></head><body><header><h1>CREATOR WORKSPACE</h1><p>クリエイター制作管理システム</p></header><main>
+
+/* ATELIER NOIR / Editorial Edition — original decorative UI, no screenshot background */
+:root{--line-gilt:#635d68;--plum-glow:#a889bc}
+header{position:relative;isolation:isolate;overflow:hidden;padding:29px 18px 25px!important;background:radial-gradient(ellipse at 80% 5%,#24202b 0%,#141217 37%,#09090b 80%)!important}
+header:after{content:"";position:absolute;inset:-80px -100px auto auto;width:320px;height:240px;transform:rotate(-24deg);pointer-events:none;z-index:-1;opacity:.3;background:repeating-linear-gradient(109deg,transparent 0 10px,#9e8fa5 11px,transparent 13px 24px);filter:blur(16px);border-radius:45%}
+header h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(25px,7vw,36px)!important;line-height:1.16!important;letter-spacing:.21em!important;max-width:100%;margin:10px auto 0!important;text-wrap:balance}
+header h1 span{display:block;white-space:nowrap}
+header h1:after{content:"✦"!important;width:min(240px,55vw)!important;height:auto!important;font-size:12px;line-height:1;color:#b5a8bd;letter-spacing:0;border-bottom:1px solid #59515f;margin:16px auto 12px!important;padding-bottom:1px;background:transparent!important}
+header:before{font-size:10px!important;letter-spacing:.28em!important}
+header p{font-family:Georgia,"Yu Mincho","Hiragino Mincho ProN",serif;letter-spacing:.14em!important;font-size:12px!important}
+header{border-image:linear-gradient(90deg,transparent,#625968,transparent) 1}
+#workspace>.top{position:relative;padding:20px 12px 13px;border:1px solid #39333f;background:linear-gradient(145deg,#121115,#0c0b0e);border-radius:3px;clip-path:polygon(0 10px,10px 0,100% 0,100% 100%,0 100%)}
+#workspace>.top:after,.card#dashboard:after,.calendar-panel:after{content:"";position:absolute;top:7px;left:7px;width:22px;height:22px;border-top:1px solid #847b8a;border-left:1px solid #847b8a;pointer-events:none;opacity:.7}
+#workspace>.top>div:first-child{padding-right:clamp(112px,28vw,190px)!important}
+#workspace>.top .eyebrow{font:10px Georgia,serif;letter-spacing:.24em;color:#a9a0b1;margin:0 0 10px}
+#workspace>.top h2{font-family:Georgia,"Yu Mincho","Hiragino Mincho ProN",serif;font-weight:500!important;letter-spacing:.055em!important;font-size:clamp(18px,4.6vw,24px)!important}
+#workspace>.top #count{font-size:12px!important}
+#workspace>.top #account{font-size:10px!important;color:#827c88!important}
+#workspace::before{top:30px!important;right:4px!important;width:clamp(115px,30vw,165px)!important;height:clamp(135px,33vw,185px)!important;opacity:.57!important;filter:drop-shadow(0 0 6px rgba(181,141,209,.45))!important;z-index:3!important}
+#workspace>.top>.row{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+#workspace>.top>.row button{font-size:clamp(11px,3.1vw,14px)!important;padding:10px 3px!important;min-width:0;white-space:nowrap;min-height:44px}
+#newButton{background:linear-gradient(135deg,#f2eef4 0%,#d2cbd7 48%,#eeeaf0 100%)!important;box-shadow:inset 0 1px #fff9,0 0 14px #b8a5ca15!important}
+#reloadButton,#logoutButton{background:linear-gradient(145deg,#26232a,#17161b)!important;border:1px solid #554d5a!important;color:#e7e2e9!important}
+#workspace>.top .toolbar{margin-bottom:0}
+#dashboard,.calendar-panel{position:relative;border-radius:4px!important;border-color:#514957!important;box-shadow:inset 0 0 0 1px #ffffff05,0 10px 25px #0003!important}
+#dashboard h2,.calendar-panel>.calendar-heading{font-family:Georgia,"Yu Mincho","Hiragino Mincho ProN",serif;font-weight:500!important;letter-spacing:.055em;font-size:20px!important}
+.section-en{position:absolute;top:18px;right:16px;font:9px Georgia,serif;letter-spacing:.21em;color:#a9a1ae}
+#dashboard>p.muted{margin-right:0}
+#dashboard .stat{border-radius:3px!important;clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%);background:linear-gradient(160deg,#18161c,#0d0c10)!important;border-color:#4b4351!important}
+#dashboard .stat strong{font-size:clamp(25px,7vw,35px)!important}
+#dashboard .compact-agenda>summary,#dashboard .compact-agenda summary,#dashboard .agenda-group>summary{border-color:#67546c!important;background:linear-gradient(110deg,#29232e,#211e26 65%,#332936)!important;border-radius:4px!important;box-shadow:inset 0 1px #ffffff0b!important}
+.calendar-panel>.calendar-heading{margin:0 0 15px}
+.calendar-panel>.top{gap:6px;justify-content:space-between}
+.calendar-panel #monthTitle{font-family:Georgia,"Yu Mincho",serif;font-size:clamp(16px,5vw,21px)!important;white-space:nowrap;margin:0}
+.calendar-panel #prevMonth,.calendar-panel #nextMonth{font-size:13px!important;padding:9px 11px!important;min-height:42px}
+.calendar-panel .cal-day{border-radius:4px!important}
+@media(max-width:420px){header{padding:25px 9px 22px!important}header h1{font-size:clamp(23px,7vw,30px)!important;letter-spacing:.17em!important}#workspace>.top{padding:17px 9px 12px}#workspace>.top>div:first-child{padding-right:115px!important}#workspace::before{top:35px!important;right:4px!important;width:118px!important;height:145px!important}#workspace>.top .eyebrow{font-size:9px}#workspace>.top .row button{font-size:12px!important}.section-en{font-size:8px;right:11px}.calendar-panel .top{flex-wrap:nowrap}}
+
+</style></head><body><header><h1><span>CREATOR</span> <span>WORKSPACE</span></h1><p>クリエイター制作管理システム</p></header><main>
 <section id="setup" class="card hidden"><h2>接続設定が必要です</h2><p id="setupMessage"></p></section>
 <section id="login" class="card hidden"><h2>ログイン</h2><form id="loginForm"><label>メールアドレス<input id="email" type="email" autocomplete="username" required></label><label>パスワード<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton">ログイン</button></form><p id="loginMessage" class="message hidden" role="status"></p><button type="button" class="linkbutton" id="forgotButton">パスワードを忘れた・初めて設定する</button></section>
 <section id="reset" class="card hidden"><h2>新しいパスワードを設定</h2><form id="resetForm"><label>新しいパスワード<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><label>確認用<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label><button id="resetButton">パスワードを保存する</button></form><p id="resetMessage" class="message hidden"></p></section>
-<section id="workspace" class="hidden"><div class="top"><div><h2>制作プロジェクト</h2><p id="count" class="muted"></p><p id="account" class="muted"></p></div><div class="row"><button id="newButton">＋ 新規登録</button><button class="secondary" id="reloadButton">更新</button><button class="secondary" id="logoutButton">ログアウト</button></div></div><p id="workspaceMessage" class="message hidden" role="status"></p>
+<section id="workspace" class="hidden"><div class="top"><div><div class="eyebrow">PROJECT OVERVIEW</div><h2>制作プロジェクト</h2><p id="count" class="muted"></p><p id="account" class="muted"></p></div><div class="row"><button id="newButton">＋ 新規登録</button><button class="secondary" id="reloadButton">更新</button><button class="secondary" id="logoutButton">ログアウト</button></div></div><p id="workspaceMessage" class="message hidden" role="status"></p>
 <div class="toolbar"><label>担当者 <select id="assigneeFilter"><option value="">全員</option></select></label><label>並び順 <select id="sortOrder"><option value="deadline">納期順</option><option value="newest">登録順</option><option value="priority">優先度順</option></select></label></div>
-<section class="card" id="dashboard"><h2>作業ダッシュボード</h2><p class="muted">未完了の工程と納期を集計。担当者別に確認できます。</p><div id="dashboardContent"></div></section>
-<section class="card"><div class="top"><button class="secondary" id="prevMonth">前月</button><h2 id="monthTitle"></h2><button class="secondary" id="nextMonth">翌月</button></div><div class="cal-legend"><span><i class="cal-swatch deadline"></i>最終納期</span><span><i class="cal-swatch task"></i>工程予定日</span></div><div id="calendar" class="calendar"></div><p class="muted">赤は最終納期、青は工程予定日です。日付をタップすると詳細を確認できます。</p></section><div id="projects"></div></section></main>
+<section class="card" id="dashboard"><span class="section-en">DASHBOARD</span><h2>作業ダッシュボード</h2><p class="muted">未完了の工程と納期を集計。担当者別に確認できます。</p><div id="dashboardContent"></div></section>
+<section class="card calendar-panel"><span class="section-en">CALENDAR</span><h2 class="calendar-heading">制作カレンダー</h2><div class="top"><button class="secondary" id="prevMonth">前月</button><h2 id="monthTitle"></h2><button class="secondary" id="nextMonth">翌月</button></div><div class="cal-legend"><span><i class="cal-swatch deadline"></i>最終納期</span><span><i class="cal-swatch task"></i>工程予定日</span></div><div id="calendar" class="calendar"></div><p class="muted">赤は最終納期、青は工程予定日です。日付をタップすると詳細を確認できます。</p></section><div id="projects"></div></section></main>
 <dialog id="editor"><h2 id="formTitle">制作物を登録</h2><form id="projectForm"><input id="projectId" type="hidden"><label>制作物の名前<input id="projectName" required></label><div class="editor-fields"><label>制作カテゴリ<select id="category"><option>衣装</option><option>ウィッグ</option><option>3Dプリンター</option><option>造形・小道具</option><option>展示品</option><option>その他</option></select></label><label>担当者<input id="assignee" placeholder="例：ねこ"></label></div><div class="editor-fields"><label class="deadline-field">最終納期<input type="date" id="deadline"></label><label>優先度<select id="priority"><option>通常</option><option>高</option><option>最優先</option></select></label></div><label>備考<textarea id="notes" rows="3"></textarea></label><div class="editor-section-title"><strong>制作工程</strong><span>チェックで完了・矢印で並び替え</span></div><div id="taskEditor"></div><button type="button" class="secondary" id="addTaskButton">＋ 工程を追加</button><div class="row"><button id="saveButton" type="submit">保存する</button><button type="button" class="secondary" id="cancelButton">キャンセル</button></div></form></dialog>
 <dialog id="dayDialog"><div class="top"><h2 id="dayTitle">予定</h2><button type="button" class="secondary" id="closeDayButton">閉じる</button></div><div id="dayEntries"></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script>
