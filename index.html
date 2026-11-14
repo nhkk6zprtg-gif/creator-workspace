@@ -225,13 +225,30 @@ dialog,#editor{background:#19171c!important;border-color:#514a56!important}
  #workspace>.top .row button{font-size:14px}
 }
 
+
+/* Atelier Noir final polish: action hierarchy, compact copy, restrained mascot */
+#workspace>.top>.row{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto;gap:7px!important;width:100%;align-items:stretch}
+#workspace>.top>.row button{min-width:0;min-height:42px;font-size:13px!important;white-space:nowrap;padding:9px 10px!important}
+#newButton{background:linear-gradient(135deg,#e7e3e9,#c8c2cd)!important;border:1px solid #e2dce7!important;color:#17141a!important;box-shadow:0 1px 9px #d3bdd71c!important;letter-spacing:.025em}
+#reloadButton{background:#242228!important;border-color:#45404a!important;color:#ded9e1!important}
+#logoutButton{background:transparent!important;border-color:#37323c!important;color:#a9a2af!important;font-weight:500!important}
+#dashboard>p.muted{font-size:11px!important;line-height:1.5!important;margin:1px 0 9px!important;color:#928d99!important}
+#workspace::before{opacity:.46!important;filter:drop-shadow(0 0 5px rgba(190,155,230,.28))!important}
+#workspace>.top>div:first-child{padding-right:clamp(125px,30vw,195px)!important}
+#workspace>.top h2{white-space:nowrap!important}
+@media(max-width:420px){
+ #workspace>.top>.row{grid-template-columns:minmax(0,1fr) auto auto}
+ #workspace>.top>.row button{font-size:12px!important;padding:9px 8px!important}
+ #workspace>.top>div:first-child{padding-right:125px!important}
+ #workspace::before{opacity:.43!important}
+}
 </style></head><body><header><h1>CREATOR WORKSPACE</h1><p>クリエイター制作管理システム</p></header><main>
 <section id="setup" class="card hidden"><h2>接続設定が必要です</h2><p id="setupMessage"></p></section>
 <section id="login" class="card hidden"><h2>ログイン</h2><form id="loginForm"><label>メールアドレス<input id="email" type="email" autocomplete="username" required></label><label>パスワード<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton">ログイン</button></form><p id="loginMessage" class="message hidden" role="status"></p><button type="button" class="linkbutton" id="forgotButton">パスワードを忘れた・初めて設定する</button></section>
 <section id="reset" class="card hidden"><h2>新しいパスワードを設定</h2><form id="resetForm"><label>新しいパスワード<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><label>確認用<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label><button id="resetButton">パスワードを保存する</button></form><p id="resetMessage" class="message hidden"></p></section>
 <section id="workspace" class="hidden"><div class="top"><div><h2>制作プロジェクト</h2><p id="count" class="muted"></p><p id="account" class="muted"></p></div><div class="row"><button id="newButton">＋ 新規登録</button><button class="secondary" id="reloadButton">更新</button><button class="secondary" id="logoutButton">ログアウト</button></div></div><p id="workspaceMessage" class="message hidden" role="status"></p>
 <div class="toolbar"><label>担当者 <select id="assigneeFilter"><option value="">全員</option></select></label><label>並び順 <select id="sortOrder"><option value="deadline">納期順</option><option value="newest">登録順</option><option value="priority">優先度順</option></select></label></div>
-<section class="card" id="dashboard"><h2>作業ダッシュボード</h2><p class="muted">未完了の工程と制作物の納期を自動集計。担当者フィルターと連動します。</p><div id="dashboardContent"></div></section>
+<section class="card" id="dashboard"><h2>作業ダッシュボード</h2><p class="muted">未完了の工程と納期を集計。担当者別に確認できます。</p><div id="dashboardContent"></div></section>
 <section class="card"><div class="top"><button class="secondary" id="prevMonth">前月</button><h2 id="monthTitle"></h2><button class="secondary" id="nextMonth">翌月</button></div><div class="cal-legend"><span><i class="cal-swatch deadline"></i>最終納期</span><span><i class="cal-swatch task"></i>工程予定日</span></div><div id="calendar" class="calendar"></div><p class="muted">赤は最終納期、青は工程予定日です。日付をタップすると詳細を確認できます。</p></section><div id="projects"></div></section></main>
 <dialog id="editor"><h2 id="formTitle">制作物を登録</h2><form id="projectForm"><input id="projectId" type="hidden"><label>制作物の名前<input id="projectName" required></label><div class="editor-fields"><label>制作カテゴリ<select id="category"><option>衣装</option><option>ウィッグ</option><option>3Dプリンター</option><option>造形・小道具</option><option>展示品</option><option>その他</option></select></label><label>担当者<input id="assignee" placeholder="例：ねこ"></label></div><div class="editor-fields"><label class="deadline-field">最終納期<input type="date" id="deadline"></label><label>優先度<select id="priority"><option>通常</option><option>高</option><option>最優先</option></select></label></div><label>備考<textarea id="notes" rows="3"></textarea></label><div class="editor-section-title"><strong>制作工程</strong><span>チェックで完了・矢印で並び替え</span></div><div id="taskEditor"></div><button type="button" class="secondary" id="addTaskButton">＋ 工程を追加</button><div class="row"><button id="saveButton" type="submit">保存する</button><button type="button" class="secondary" id="cancelButton">キャンセル</button></div></form></dialog>
 <dialog id="dayDialog"><div class="top"><h2 id="dayTitle">予定</h2><button type="button" class="secondary" id="closeDayButton">閉じる</button></div><div id="dayEntries"></div></dialog>
