@@ -51,6 +51,31 @@ dialog{box-sizing:border-box;max-width:min(530px,calc(100vw - 20px));width:calc(
 #projects .project-details .task{padding:10px 12px}
 #projects .project-notes{font-size:13px;white-space:pre-wrap}
 @media(max-width:390px){.task-edit{grid-template-columns:24px minmax(0,1fr) 32px 32px 32px;gap:4px;padding:7px}.editor-fields{gap:7px}.task-date-wrap{grid-template-columns:48px minmax(0,1fr)}}
+
+/* Compact dashboard: show totals at a glance and expand only the needed section */
+#dashboard{padding:14px 16px}
+#dashboard h2{margin:0 0 5px;font-size:18px}
+#dashboard>p.muted{margin:0;font-size:12px;line-height:1.5}
+#dashboard .dashboard-stats{margin:10px 0;gap:6px}
+#dashboard .stat{padding:9px 4px;border-radius:9px}
+#dashboard .stat strong{font-size:23px}
+#dashboard .stat small{font-size:11px}
+#dashboard .stat-alert{border-color:#e56b75;background:#492b38}
+#dashboard .compact-agenda{margin:7px 0 0;border:1px solid #40516a;border-radius:9px;overflow:hidden}
+#dashboard .compact-agenda>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;cursor:pointer;background:#29384d;font-size:14px;font-weight:700;list-style:none}
+#dashboard .compact-agenda>summary::-webkit-details-marker{display:none}
+#dashboard .compact-agenda.late>summary{background:#57333e}
+#dashboard .agenda-summary-count{color:#b9cbe1;font-size:12px;white-space:nowrap}
+#dashboard .compact-agenda[open] .agenda-summary-count span{display:inline-block;transform:rotate(180deg)}
+#dashboard .agenda-contents{padding:4px 9px 9px}
+#dashboard .agenda-item{padding:9px;margin:5px 0;background:#182333}
+#dashboard .agenda-main{display:flex;gap:7px;align-items:flex-start}
+#dashboard .agenda-main strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+#dashboard .agenda-type{flex-shrink:0;font-size:11px;padding:2px 5px;border-radius:4px}
+#dashboard .agenda-type.deadline{background:#713846;color:#ffe5e8}
+#dashboard .agenda-type.task{background:#284e79;color:#dcecff}
+#dashboard .agenda-item p{font-size:12px;margin:5px 0}
+#dashboard .agenda-item button{font-size:12px;padding:8px 10px;margin-top:3px}
 </style></head><body><header><h1>CREATOR WORKSPACE</h1><p>クリエイター制作管理システム</p></header><main>
 <section id="setup" class="card hidden"><h2>接続設定が必要です</h2><p id="setupMessage"></p></section>
 <section id="login" class="card hidden"><h2>ログイン</h2><form id="loginForm"><label>メールアドレス<input id="email" type="email" autocomplete="username" required></label><label>パスワード<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton">ログイン</button></form><p id="loginMessage" class="message hidden" role="status"></p><button type="button" class="linkbutton" id="forgotButton">パスワードを忘れた・初めて設定する</button></section>
@@ -108,7 +133,25 @@ $('calendar').addEventListener('click',e=>{const day=e.target.closest('[data-day
 $('calendar').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const day=e.target.closest('[data-day]');if(day){e.preventDefault();openDay(day.dataset.day);}});
 function renderCalendar(){const root=$('calendar'),y=calendarMonth.getFullYear(),m=calendarMonth.getMonth();$('monthTitle').textContent=`${y}年${m+1}月`;const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();let html=['日','月','火','水','木','金','土'].map(d=>`<div class="cal-week">${d}</div>`).join('');for(let slot=0;slot<Math.ceil((first+days)/7)*7;slot++){const d=slot-first+1;if(d<1||d>days){html+='<div class="cal-day cal-other"></div>';continue;}const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const entries=calendarEntries(key),has=entries.length>0;const deadlines=entries.filter(x=>x.type==='deadline').length,tasks=entries.length-deadlines;html+=`<div class="cal-day${has?' has-events':''}${deadlines?' has-deadline':''}${tasks?' has-task':''}"${has?` role="button" tabindex="0" data-day="${key}" aria-label="${d}日、最終納期${deadlines}件、工程予定${tasks}件"`:''}><strong>${d}</strong>${deadlines?`<span class="cal-count deadline">納期 ${deadlines}件</span>`:''}${tasks?`<span class="cal-count task">工程 ${tasks}件</span>`:''}</div>`;}root.innerHTML=html;}
 function localDateKey(date){return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');}
-function renderDashboard(){const selected=$('assigneeFilter').value;const today=new Date();today.setHours(0,0,0,0);const todayKey=localDateKey(today),end=new Date(today);end.setDate(end.getDate()+7);const endKey=localDateKey(end);const groups={late:[],today:[],soon:[]};for(const p of data){if(selected&&p.assignee!==selected)continue;const items=[];for(const t of p.tasks){if(!t.done&&t.date)items.push({date:t.date,title:t.name,type:'工程',p});}if(p.deadline&&progress(p)<100)items.push({date:p.deadline,title:'制作物の納期',type:'納期',p});for(const item of items){if(item.date<todayKey)groups.late.push(item);else if(item.date===todayKey)groups.today.push(item);else if(item.date<=endKey)groups.soon.push(item);}}for(const items of Object.values(groups))items.sort((a,b)=>a.date.localeCompare(b.date)||((a.p.priority==='最優先')?-1:0));const labels=[['late','期限超過'],['today','今日やること'],['soon','今後7日間']];const stats=`<div class="dashboard-stats">${labels.map(([key,label])=>`<div class="stat"><strong>${groups[key].length}</strong><small>${label}</small></div>`).join('')}</div>`;const sections=labels.map(([key,label])=>`<div class="agenda-group"><h3>${label}</h3>${groups[key].length?groups[key].map(item=>`<div class="agenda-item"><strong>${esc(item.p.name)} ／ ${esc(item.title)}</strong><p class="muted">${esc(item.date)} ・ ${item.type} ・ 担当：${esc(item.p.assignee||'未設定')} ・ 優先度：${esc(item.p.priority||'通常')}</p><button type="button" class="secondary" data-dashboard-edit="${Number(item.p.id)}">編集・工程管理</button></div>`).join(''):'<p class="agenda-empty">該当する未完了の予定はありません。</p>'}</div>`).join('');$('dashboardContent').innerHTML=stats+sections;}
+function renderDashboard(){
+ const selected=$('assigneeFilter').value;
+ const today=new Date();today.setHours(0,0,0,0);
+ const todayKey=localDateKey(today),end=new Date(today);end.setDate(end.getDate()+7);
+ const endKey=localDateKey(end),groups={late:[],today:[],soon:[]};
+ for(const p of data){
+  if(selected&&p.assignee!==selected)continue;
+  const items=[];
+  for(const t of p.tasks){if(!t.done&&t.date)items.push({date:t.date,title:t.name,type:'工程',p});}
+  if(p.deadline&&progress(p)<100)items.push({date:p.deadline,title:'制作物の納期',type:'納期',p});
+  for(const item of items){if(item.date<todayKey)groups.late.push(item);else if(item.date===todayKey)groups.today.push(item);else if(item.date<=endKey)groups.soon.push(item);}
+ }
+ for(const items of Object.values(groups))items.sort((a,b)=>a.date.localeCompare(b.date)||((a.p.priority==='最優先')?-1:0));
+ const labels=[['late','期限超過'],['today','今日やること'],['soon','今後7日間']];
+ const stats=`<div class="dashboard-stats">${labels.map(([key,label])=>`<div class="stat${key==='late'&&groups[key].length?' stat-alert':''}"><strong>${groups[key].length}</strong><small>${label}</small></div>`).join('')}</div>`;
+ const itemHTML=item=>`<div class="agenda-item"><div class="agenda-main"><span class="agenda-type ${item.type==='納期'?'deadline':'task'}">${item.type==='納期'?'納期':'工程'}</span><strong>${esc(item.p.name)} ／ ${esc(item.title)}</strong></div><p class="muted">${esc(item.date)} ・ 担当：${esc(item.p.assignee||'未設定')} ・ 優先度：${esc(item.p.priority||'通常')}</p><button type="button" class="secondary" data-dashboard-edit="${Number(item.p.id)}">編集・工程管理</button></div>`;
+ const sections=labels.filter(([key])=>groups[key].length).map(([key,label])=>`<details class="agenda-group compact-agenda ${key}" ${key==='late'?'open':''}><summary><span>${label}</span><span class="agenda-summary-count">${groups[key].length}件 <span aria-hidden="true">▾</span></span></summary><div class="agenda-contents">${groups[key].map(itemHTML).join('')}</div></details>`).join('');
+ $('dashboardContent').innerHTML=stats+(sections||'<p class="agenda-empty">直近7日間に未完了の予定はありません。</p>');
+}
 $('dashboardContent').addEventListener('click',e=>{const b=e.target.closest('[data-dashboard-edit]');if(b)openForm(b.dataset.dashboardEdit);});
 const expandedProjects=new Set();
 $('projects').addEventListener('toggle',e=>{const el=e.target;if(!el.matches?.('details[data-project-id]'))return;const id=el.dataset.projectId;if(el.open)expandedProjects.add(id);else expandedProjects.delete(id);},true);
