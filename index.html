@@ -621,7 +621,7 @@ cwEl('cwItemForm').addEventListener('submit',async e=>{
  const projectId=cwProjectId(),form=cwEl('cwItemForm'),b=e.submitter;
  if(projectId===undefined){cwMsg('制作物または「その他」を選択してください。',true);return;}
  const row={project_id:projectId,kind:cwEl('cwKind').value,title:cwEl('cwTitle').value.trim(),state:cwEl('cwState').value,due_date:cwEl('cwDue').value||null,note:cwEl('cwNote').value.trim()};
- if(row.kind==='material'){const raw=cwEl('cwExpenseAmount').value.trim();if(raw!==''&&(!/^\\d+$/.test(raw)||!Number.isSafeInteger(Number(raw)))){cwMsg('支出額は0以上の整数（円）で入力してください。',true);return;}row.expense_amount=raw===''?null:Number(raw);row.expense_date=raw===''?null:(cwEl('cwExpenseDate').value||localDateKey(new Date()));}
+ if(row.kind==='material'){const raw=cwEl('cwExpenseAmount').value.trim();if(raw!==''&&(!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw)))){cwMsg('支出額は0以上の整数（円）で入力してください。',true);return;}row.expense_amount=raw===''?null:Number(raw);row.expense_date=raw===''?null:(cwEl('cwExpenseDate').value||localDateKey(new Date()));}
  if(!row.title){cwMsg('項目名を入力してください。',true);return;}
  b.disabled=true;cwBusy=true;cwEl('cwMessage').dataset.persistent='1';cwMsg('保存中…');
  try{
