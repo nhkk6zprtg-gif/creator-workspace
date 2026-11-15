@@ -621,7 +621,7 @@ cwEl('cwItemForm').addEventListener('submit',async e=>{
  const projectId=cwProjectId(),form=cwEl('cwItemForm'),b=e.submitter;
  if(projectId===undefined){cwMsg('制作物または「その他」を選択してください。',true);return;}
  const row={project_id:projectId,kind:cwEl('cwKind').value,title:cwEl('cwTitle').value.trim(),state:cwEl('cwState').value,due_date:cwEl('cwDue').value||null,note:cwEl('cwNote').value.trim()};
- if(row.kind==='material'){const raw=cwEl('cwExpenseAmount').value.trim();if(raw!==''&&(!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw)))){cwMsg('支出額は0以上の整数（円）で入力してください。',true);return;}row.expense_amount=raw===''?null:Number(raw);row.expense_date=raw===''?null:(cwEl('cwExpenseDate').value||localDateKey(new Date()));}
+ if(row.kind==='material'){const raw=cwEl('cwExpenseAmount').value.trim();const amount=raw===''?null:Number(raw.replace(/[０-９]/g,c=>String(c.charCodeAt(0)-65296)).replace(/[,，\s]/g,''));if(amount!==null&&(!Number.isSafeInteger(amount)||amount<0)){cwMsg('支出額を確認してください（入力値：'+esc(raw)+'）。半角数字で0以上の整数を入力してください。',true);return;}row.expense_amount=amount;row.expense_date=raw===''?null:(cwEl('cwExpenseDate').value||localDateKey(new Date()));}
  if(!row.title){cwMsg('項目名を入力してください。',true);return;}
  b.disabled=true;cwBusy=true;cwEl('cwMessage').dataset.persistent='1';cwMsg('保存中…');
  try{
@@ -651,11 +651,11 @@ const changes={title:title.trim(),note,due_date:due||null};
 if(x.kind==='material'){
  const amount=prompt('支出額（税込・円）。未購入の場合は空欄',x.expense_amount??'');
  if(amount===null)return;
- if(amount.trim()!==''&&(!/^\d+$/.test(amount.trim())||!Number.isSafeInteger(Number(amount.trim())))){cwMsg('支出額は0以上の整数（円）で入力してください。',true);return;}
+ const normalizedAmount=amount.trim()===''?null:Number(amount.trim().replace(/[０-９]/g,c=>String(c.charCodeAt(0)-65296)).replace(/[,，\s]/g,''));if(normalizedAmount!==null&&(!Number.isSafeInteger(normalizedAmount)||normalizedAmount<0)){cwMsg('支出額を確認してください（入力値：'+esc(amount)+'）。',true);return;}
  const date=prompt('支出日（YYYY-MM-DD）。金額がある場合に入力',x.expense_date||localDateKey(new Date()));
  if(date===null)return;
  if(amount.trim()!==''&&!/^\d{4}-\d{2}-\d{2}$/.test(date)){cwMsg('支出日はYYYY-MM-DDで入力してください。',true);return;}
- changes.expense_amount=amount.trim()===''?null:Number(amount.trim());
+ changes.expense_amount=normalizedAmount;
  changes.expense_date=amount.trim()===''?null:date;
 }
 try{const {error}=await db.from('work_items').update(changes).eq('id',id);if(error)throw error;await cwLog(x.project_id,'項目を編集：'+title);await cwRefresh();if(x.kind==='next'&&x.project_id!==null&&title.trim()!==x.title)cwMsg('項目名を変更しました。既存工程の名称は変更されません。必要に応じて制作物の工程を編集してください。');}catch(err){cwMsg(errText(err),true);}return;}
