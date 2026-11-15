@@ -386,7 +386,7 @@ header{border-image:linear-gradient(90deg,transparent,#625968,transparent) 1}
 .cw-extra{background:#1c2635;border-color:#465670}.cw-extra .cw-entry{border-color:#425066}
 .cw-extra .cw-row button{flex:0 0 auto}.cw-extra button:focus-visible,.cw-tabs button:focus-visible{outline:3px solid #c8e1ff;outline-offset:2px}
 @media(max-width:420px){.cw-extra{padding:12px}.cw-extra .cw-row{align-items:stretch}.cw-extra .cw-row input[type=text],.cw-extra .cw-row select{flex-basis:100%}.cw-extra .cw-row button{width:100%}}
-</style></head><body><header><h1><span>CREATOR</span> <span>WORKSPACE</span></h1><p>クリエイター制作管理システム</p></header><main>
+#cwMessage:not([hidden]){display:block!important;padding:12px;border:1px solid #806f85;border-radius:10px;background:#292331;white-space:pre-wrap;overflow-wrap:anywhere;font-weight:650;margin-top:14px}\n</style></head><body><header><h1><span>CREATOR</span> <span>WORKSPACE</span></h1><p>クリエイター制作管理システム</p></header><main>
 <section id="setup" class="card hidden"><h2>接続設定が必要です</h2><p id="setupMessage"></p></section>
 <section id="login" class="card hidden"><h2>ログイン</h2><form id="loginForm"><label>メールアドレス<input id="email" type="email" autocomplete="username" required></label><label>パスワード<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton">ログイン</button></form><p id="loginMessage" class="message hidden" role="status"></p><button type="button" class="linkbutton" id="forgotButton">パスワードを忘れた・初めて設定する</button></section>
 <section id="reset" class="card hidden"><h2>新しいパスワードを設定</h2><form id="resetForm"><label>新しいパスワード<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><label>確認用<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label><button id="resetButton">パスワードを保存する</button></form><p id="resetMessage" class="message hidden"></p></section>
@@ -499,7 +499,8 @@ async function setSession(session){currentUser=session?.user||null;if(recoveryMo
 /* Production support: optional shared work items, photo progress and audit trail */
 let cwItems=[],cwPhotos=[],cwLogs=[],cwLoading=false,cwRefreshToken=0;
 const cwEl=id=>document.getElementById(id);
-function cwMsg(t,bad=false){cwEl('cwMessage').textContent=t;cwEl('cwMessage').style.color=bad?'#ffb9b9':'';}
+function cwMsg(t,bad=false){const el=cwEl('cwMessage');el.textContent=t;el.style.color=bad?'#ffb9b9':'#b9efd2';el.setAttribute('role',bad?'alert':'status');el.hidden=!t;}
+function cwErrorDetail(e){return [e?.message,e?.details,e?.hint,e?.code].filter(Boolean).join(' / ')||'原因不明の通信エラー';}
 function cwProjectOptions(){const el=cwEl('cwProject'),old=el.value;el.innerHTML='<option value="">制作物を選択</option><option value="other">その他（テスト用・制作物に紐づけない）</option>'+data.map(p=>'<option value="'+Number(p.id)+'">'+esc(p.name)+'</option>').join('');el.value=old==='other'||data.some(p=>String(p.id)===old)?old:'';}
 function cwSelected(){return data.find(p=>String(p.id)===cwEl('cwProject').value);}
 function cwProjectId(){const value=cwEl('cwProject').value;return value==='other'?null:value?Number(value):undefined;}
@@ -514,7 +515,7 @@ for(const [kind,el] of [['next','cwNext'],['material','cwMaterials'],['issue','c
 cwEl('cwActivity').innerHTML=cwLogs.filter(cwMatches).slice(0,25).map(x=>'<div class="cw-entry"><div class="cw-meta">'+esc(new Date(x.created_at).toLocaleString('ja-JP'))+' ／ '+esc(x.actor||'共有ユーザー')+'</div>'+esc(x.action)+'</div>').join('')||'<p class="cw-small">更新履歴はありません。</p>';
 cwEl('cwPhotos').innerHTML='';cwPhotos.filter(cwMatches).forEach(async x=>{const fig=document.createElement('figure');fig.innerHTML='<div class="cw-small">読み込み中…</div><figcaption>'+esc(x.caption||'制作途中の写真')+'</figcaption><button type="button" class="secondary" data-cw-photo-delete="'+Number(x.id)+'">削除</button>';cwEl('cwPhotos').append(fig);const {data:link,error}=await db.storage.from('creator-archive').createSignedUrl(x.image_path,3600);if(!error&&fig.isConnected&&Number(cwEl('cwProject').value)===Number(x.project_id)){const img=document.createElement('img');img.src=link.signedUrl;img.alt=x.caption||'制作途中';img.loading='lazy';fig.firstElementChild.replaceWith(img);}});
 }
-async function cwRefresh(){if(!currentUser)return;const token=++cwRefreshToken;cwProjectOptions();cwMsg('制作サポートを読み込み中…');try{const results=await Promise.all([db.from('work_items').select('*').order('created_at',{ascending:false}).limit(300),db.from('work_photos').select('*').order('created_at',{ascending:false}).limit(150),db.from('activity_log').select('*').order('created_at',{ascending:false}).limit(200)]);for(const r of results)if(r.error)throw r.error;if(token!==cwRefreshToken)return;[cwItems,cwPhotos,cwLogs]=results.map(r=>r.data||[]);cwRender();cwLastUpdated=Date.now();cwEl('cwUpdated').textContent='最終更新：'+new Date(cwLastUpdated).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});cwMsg('');}catch(e){cwMsg('制作サポートの準備が必要です。追加SQLを実行してください：'+errText(e),true);}}
+async function cwRefresh(){if(!currentUser)return;const token=++cwRefreshToken;cwProjectOptions();if(!cwEl('cwMessage').dataset.persistent)cwMsg('制作サポートを読み込み中…');try{const results=await Promise.all([db.from('work_items').select('*').order('created_at',{ascending:false}).limit(300),db.from('work_photos').select('*').order('created_at',{ascending:false}).limit(150),db.from('activity_log').select('*').order('created_at',{ascending:false}).limit(200)]);for(const r of results)if(r.error)throw r.error;if(token!==cwRefreshToken)return;[cwItems,cwPhotos,cwLogs]=results.map(r=>r.data||[]);cwRender();cwLastUpdated=Date.now();cwEl('cwUpdated').textContent='最終更新：'+new Date(cwLastUpdated).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});if(!cwEl('cwMessage').dataset.persistent)cwMsg('');}catch(e){cwMsg('制作サポートの読み込みに失敗：'+cwErrorDetail(e),true);cwEl('cwMessage').dataset.persistent='1';}}
 async function cwLog(projectId,action){try{await db.from('activity_log').insert({project_id:projectId,actor:currentUser?.email||'',action});}catch(e){console.warn('Activity log:',e);}}
 
 // UI state: preserve active tab while refreshing shared data.
@@ -543,7 +544,29 @@ window.addEventListener('focus',()=>{if(Date.now()-cwLastUpdated>30000)cwBackgro
 setInterval(()=>{if(!document.hidden&&Date.now()-cwLastUpdated>90000)cwBackgroundRefresh();},90000);
 cwEl('cwProject').addEventListener('change',cwRender);
 cwEl('cwReload').addEventListener('click',cwRefresh);
-cwEl('cwItemForm').addEventListener('submit',async e=>{e.preventDefault();const projectId=cwProjectId();if(projectId===undefined){cwMsg('制作物または「その他」を選択してください。',true);return;}const b=e.submitter;b.disabled=true;cwBusy=true;try{const row={project_id:projectId,kind:cwEl('cwKind').value,title:cwEl('cwTitle').value.trim(),state:cwEl('cwState').value,due_date:cwEl('cwDue').value||null,note:cwEl('cwNote').value.trim()};const {error}=await db.from('work_items').insert(row);if(error)throw error;await cwLog(projectId,'管理項目を追加：'+row.title);cwEl('cwItemForm').reset();await cwRefresh();}catch(err){cwMsg('保存できません：'+errText(err),true);}finally{b.disabled=false;cwBusy=false;}});
+cwEl('cwItemForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const projectId=cwProjectId(),form=cwEl('cwItemForm'),b=e.submitter;
+ if(projectId===undefined){cwMsg('制作物または「その他」を選択してください。',true);return;}
+ const row={project_id:projectId,kind:cwEl('cwKind').value,title:cwEl('cwTitle').value.trim(),state:cwEl('cwState').value,due_date:cwEl('cwDue').value||null,note:cwEl('cwNote').value.trim()};
+ if(!row.title){cwMsg('項目名を入力してください。',true);return;}
+ b.disabled=true;cwBusy=true;cwEl('cwMessage').dataset.persistent='1';cwMsg('保存中…');
+ try{
+  const {data:inserted,error}=await db.from('work_items').insert(row).select('id,project_id,kind,title').single();
+  if(error)throw error;
+  if(!inserted?.id)throw Error('保存結果を確認できませんでした。');
+  const {data:verified,error:verifyError}=await db.from('work_items').select('id').eq('id',inserted.id).maybeSingle();
+  if(verifyError)throw verifyError;
+  if(!verified)throw Error('保存後のデータを読み取れません。RLSポリシーを確認してください。');
+  await cwLog(projectId,'管理項目を追加：'+row.title);
+  form.reset();
+  cwSelectTab(row.kind);
+  await cwRefresh();
+  cwMsg('保存成功：「'+row.title+'」を登録しました（ID: '+inserted.id+'）。');
+ }catch(err){
+  cwMsg('保存失敗：'+cwErrorDetail(err)+'。このメッセージをスクリーンショットで送ってください。',true);
+ }finally{b.disabled=false;cwBusy=false;}
+});
 cwEl('workTools').addEventListener('click',async e=>{const b=e.target.closest('[data-cw-cycle],[data-cw-edit],[data-cw-delete],[data-cw-photo-delete]');if(!b)return;const id=Number(b.dataset.cwCycle||b.dataset.cwEdit||b.dataset.cwDelete||b.dataset.cwPhotoDelete),photo=Boolean(b.dataset.cwPhotoDelete),x=(photo?cwPhotos:cwItems).find(r=>Number(r.id)===id);if(!x)return;
 if(b.dataset.cwEdit){const title=prompt('項目名',x.title);if(title===null)return;const note=prompt('メモ',x.note||'');if(note===null)return;const due=prompt('予定日（YYYY-MM-DD、空欄ならなし）',x.due_date||'');if(due===null||due&&!/^\d{4}-\d{2}-\d{2}$/.test(due))return;try{const {error}=await db.from('work_items').update({title:title.trim(),note,due_date:due||null}).eq('id',id);if(error)throw error;await cwLog(x.project_id,'項目を編集：'+title);await cwRefresh();}catch(err){cwMsg(errText(err),true);}return;}
 if(b.dataset.cwCycle){const states=x.kind==='material'?['未着手','購入待ち','注文済み','到着済み','完了']:x.kind==='issue'?['保留','進行中','解決']:['未着手','進行中','完了'];const next=states[(states.indexOf(x.state)+1+states.length)%states.length];try{const {error}=await db.from('work_items').update({state:next}).eq('id',id);if(error)throw error;await cwLog(x.project_id,x.title+'：'+next);await cwRefresh();}catch(err){cwMsg(errText(err),true);}return;}
