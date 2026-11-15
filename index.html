@@ -394,7 +394,7 @@ header{border-image:linear-gradient(90deg,transparent,#625968,transparent) 1}
 <div class="toolbar"><label>担当者 <select id="assigneeFilter"><option value="">全員</option></select></label><label>並び順 <select id="sortOrder"><option value="deadline">納期順</option><option value="newest">登録順</option><option value="priority">優先度順</option></select></label></div>
 <details id="dailyReports" class="card report-collapsible"><summary class="report-summary"><span><span class="section-en">DAILY WORK</span><strong>制作日報</strong><small>タップして日報を確認・記入</small></span><span class="report-chevron" aria-hidden="true">⌄</span></summary><div class="report-body"><div class="report-tabs" role="tablist" aria-label="制作日報の表示"><button type="button" class="report-tab" id="reportInputTab" role="tab" aria-controls="reportInputPanel" aria-selected="false">入力</button><button type="button" class="report-tab is-active" id="reportHistoryTab" role="tab" aria-controls="reportHistoryPanel" aria-selected="true">履歴</button></div><div id="reportInputPanel" role="tabpanel" aria-labelledby="reportInputTab" hidden><p class="muted">今日の作業・次回予定・相談事項を共有します。「完了」で保存すると、制作物に登録済みの同名工程も完了にします。</p><button type="button" id="reportAdd">＋ 日報を記入</button></div><div id="reportHistoryPanel" role="tabpanel" aria-labelledby="reportHistoryTab"><div class="report-head"><h2>日報履歴</h2><button type="button" class="secondary" id="reportReload">更新</button></div><p id="reportMessage" class="muted" role="status"></p><div id="reportList" class="report-list"></div></div></div></details>
 <details class="cw-extra" id="workTools"><summary>制作サポート｜次の作業・材料・保留・写真・履歴</summary>
-<p class="cw-small">制作物を選択して管理します。既存の工程チェック・日報はそのまま利用できます。</p>
+<p class="cw-small">制作物を選択して管理します。「次にやること」は選択した制作物の工程と連動します（その他は対象外）。日報はそのまま利用できます。</p>
 <label>対象の制作物<select id="cwProject"><option value="">制作物を選択</option></select></label>
 <div id="cwDeadlines"></div>
 <div class="cw-tabs" role="tablist" aria-label="制作サポートの機能切替">
@@ -454,7 +454,8 @@ function closeEditorStable(){
 function openForm(id){if(busy||!currentUser)return;editorReturnScrollY=window.scrollY;form.reset();$('projectId').value='';$('formTitle').textContent='制作物を登録';editingTasks=templates[$('category').value].map(name=>({name,done:false}));if(id!==undefined){const p=data.find(x=>String(x.id)===String(id));if(!p)return;$('projectId').value=String(p.id);$('projectName').value=p.name||'';$('category').value=p.category||'その他';$('assignee').value=p.assignee||'';$('deadline').value=p.deadline||'';$('priority').value=p.priority||'通常';$('notes').value=p.notes||'';editingTasks=p.tasks.map(t=>({...t}));$('formTitle').textContent='制作物を編集';}renderTaskEditor();editor.showModal();}
 $('newButton').addEventListener('click',()=>openForm());$('cancelButton').addEventListener('click',closeEditorStable);
 form.addEventListener('submit',async e=>{e.preventDefault();if(busy||!currentUser)return;const id=$('projectId').value;const p={name:$('projectName').value.trim(),category:$('category').value,assignee:$('assignee').value.trim(),deadline:$('deadline').value,priority:$('priority').value,notes:$('notes').value.trim(),tasks:editingTasks.map(t=>({name:String(t.name).trim(),done:!!t.done,date:t.date||''})).filter(t=>t.name)};if(!p.name)return;busy=true;$('saveButton').disabled=true;if(document.activeElement&&editor.contains(document.activeElement))document.activeElement.blur();try{const q=id?db.from('projects').update(payload(p)).eq('id',Number(id)).select('id'):db.from('projects').insert(payload(p)).select('id');const {data:result,error}=await q;if(error)throw error;if(!result?.length)throw Error('保存対象が見つかりません。');closeEditorStable();await refresh();}catch(err){alert('保存できませんでした：'+errText(err));}finally{busy=false;$('saveButton').disabled=false;}});
-async function toggleTask(id,index,checked){if(busy||!currentUser)return;const p=data.find(x=>String(x.id)===String(id));if(!p||!p.tasks[index])return;const old=p.tasks.map(t=>({...t}));p.tasks[index].done=checked;render();busy=true;try{const {data:result,error}=await db.from('projects').update({tasks:p.tasks,progress:progress(p),status:status(p)}).eq('id',Number(id)).select('id');if(error)throw error;if(!result?.length)throw Error('更新対象が見つかりません。');await cwLog(p.id,'工程「'+p.tasks[index].name+'」を'+(checked?'完了':'未完了')+'に変更');await refresh();}catch(err){p.tasks=old;render();message('工程の保存に失敗：'+errText(err),true);}finally{busy=false;}}
+async function toggleTask(id,index,checked){if(busy||!currentUser)return;const p=data.find(x=>String(x.id)===String(id));if(!p||!p.tasks[index])return;const old=p.tasks.map(t=>({...t}));p.tasks[index].done=checked;render();busy=true;try{const {data:result,error}=await db.from('projects').update({tasks:p.tasks,progress:progress(p),status:status(p)}).eq('id',Number(id)).select('id');if(error)throw error;if(!result?.length)throw Error('更新対象が見つかりません。');try{const name=p.tasks[index].name;const {data:linkedRows,error:linkedError}=await db.from('work_items').select('id,state').eq('project_id',p.id).eq('kind','next').eq('title',name).limit(3);if(!linkedError&&linkedRows?.length===1){await db.from('work_items').update({state:checked?'完了':'未着手'}).eq('id',linkedRows[0].id);}}catch(syncError){console.warn('Next action synchronization:',syncError);}
+ await cwLog(p.id,'工程「'+p.tasks[index].name+'」を'+(checked?'完了':'未完了')+'に変更');await refresh();}catch(err){p.tasks=old;render();message('工程の保存に失敗：'+errText(err),true);}finally{busy=false;}}
 async function deleteProject(id){if(busy||!currentUser||!confirm('この制作物を削除しますか？'))return;busy=true;try{const {data:result,error}=await db.from('projects').delete().eq('id',Number(id)).select('id');if(error)throw error;if(!result?.length)throw Error('削除対象が見つかりません。');await refresh();}catch(err){message('削除できませんでした：'+errText(err),true);}finally{busy=false;}}
 function calendarEntries(key){const selected=$('assigneeFilter').value;const items=[];for(const p of data){if(selected&&p.assignee!==selected)continue;if(p.deadline===key)items.push({p,type:'deadline'});p.tasks.forEach((t,i)=>{if(t.date===key)items.push({p,type:'task',task:t,index:i});});}return items;}
 function openDay(key){if(!/^\d{4}-\d{2}-\d{2}$/.test(key))return;const entries=calendarEntries(key);if(!entries.length)return;$('dayTitle').textContent=key.replace(/-/g,'/')+' の予定';$('dayEntries').innerHTML=entries.map(item=>{const p=item.p,task=item.task;return `<div class="day-entry ${item.type}"><strong>${item.type==='deadline'?'【最終納期】':'【工程予定日】'} ${esc(p.name)}</strong>${task?`<p>${esc(task.name)} ${task.done?'（完了）':'（未完了）'}</p>`:''}<p class="muted">${esc(p.category||'その他')} ／ 担当：${esc(p.assignee||'未設定')}</p><p class="muted">進捗 ${progress(p)}% ／ 優先度：${esc(p.priority||'通常')}</p><button type="button" class="secondary" data-edit-day="${Number(p.id)}">編集・工程管理</button></div>`;}).join('');$('dayDialog').showModal();}
@@ -544,6 +545,22 @@ window.addEventListener('focus',()=>{if(Date.now()-cwLastUpdated>30000)cwBackgro
 setInterval(()=>{if(!document.hidden&&Date.now()-cwLastUpdated>90000)cwBackgroundRefresh();},90000);
 cwEl('cwProject').addEventListener('change',cwRender);
 cwEl('cwReload').addEventListener('click',cwRefresh);
+async function cwLinkNextAction(projectId,title,done,dueDate,mode){
+ if(projectId===null||projectId===undefined)return {linked:false,reason:'その他は工程連動の対象外'};
+ const {data:project,error:readError}=await db.from('projects').select('id,tasks').eq('id',projectId).single();
+ if(readError)throw readError;
+ const tasks=Array.isArray(project.tasks)?project.tasks.map(t=>({...t})):[];
+ const matches=tasks.filter(t=>String(t.name||'').trim()===title);
+ if(matches.length>1)return {linked:false,reason:'同名工程が複数あるため連動を保留'};
+ if(mode==='create'&&matches.length===0){tasks.push({name:title,done:!!done,date:dueDate||''});}
+ else if(matches.length===1){matches[0].done=!!done;if(dueDate&&!matches[0].date)matches[0].date=dueDate;}
+ else return {linked:false,reason:'対応する工程がありません'};
+ const updated={...project,tasks};
+ const {data:written,error:writeError}=await db.from('projects').update({tasks,progress:progress(updated),status:status(updated)}).eq('id',projectId).select('id');
+ if(writeError)throw writeError;
+ if(!written?.length)throw Error('制作物の工程を更新できませんでした');
+ return {linked:true};
+}
 cwEl('cwItemForm').addEventListener('submit',async e=>{
  e.preventDefault();
  const projectId=cwProjectId(),form=cwEl('cwItemForm'),b=e.submitter;
@@ -558,18 +575,26 @@ cwEl('cwItemForm').addEventListener('submit',async e=>{
   const {data:verified,error:verifyError}=await db.from('work_items').select('id').eq('id',inserted.id).maybeSingle();
   if(verifyError)throw verifyError;
   if(!verified)throw Error('保存後のデータを読み取れません。RLSポリシーを確認してください。');
+  let linkedNote='';
+  if(row.kind==='next'&&projectId!==null){
+   try{const linked=await cwLinkNextAction(projectId,row.title,row.state==='完了',row.due_date,'create');linkedNote=linked.linked?'／ 制作物の工程にも反映':('／ 工程連動なし：'+linked.reason);}
+   catch(linkErr){linkedNote='／ 工程への反映に失敗：'+cwErrorDetail(linkErr);}
+  }
   await cwLog(projectId,'管理項目を追加：'+row.title);
   form.reset();
   cwSelectTab(row.kind);
   await cwRefresh();
-  cwMsg('保存成功：「'+row.title+'」を登録しました（ID: '+inserted.id+'）。');
+  cwMsg('保存成功：「'+row.title+'」を登録しました（ID: '+inserted.id+'）'+linkedNote);
  }catch(err){
   cwMsg('保存失敗：'+cwErrorDetail(err)+'。このメッセージをスクリーンショットで送ってください。',true);
  }finally{b.disabled=false;cwBusy=false;}
 });
 cwEl('workTools').addEventListener('click',async e=>{const b=e.target.closest('[data-cw-cycle],[data-cw-edit],[data-cw-delete],[data-cw-photo-delete]');if(!b)return;const id=Number(b.dataset.cwCycle||b.dataset.cwEdit||b.dataset.cwDelete||b.dataset.cwPhotoDelete),photo=Boolean(b.dataset.cwPhotoDelete),x=(photo?cwPhotos:cwItems).find(r=>Number(r.id)===id);if(!x)return;
-if(b.dataset.cwEdit){const title=prompt('項目名',x.title);if(title===null)return;const note=prompt('メモ',x.note||'');if(note===null)return;const due=prompt('予定日（YYYY-MM-DD、空欄ならなし）',x.due_date||'');if(due===null||due&&!/^\d{4}-\d{2}-\d{2}$/.test(due))return;try{const {error}=await db.from('work_items').update({title:title.trim(),note,due_date:due||null}).eq('id',id);if(error)throw error;await cwLog(x.project_id,'項目を編集：'+title);await cwRefresh();}catch(err){cwMsg(errText(err),true);}return;}
-if(b.dataset.cwCycle){const states=x.kind==='material'?['未着手','購入待ち','注文済み','到着済み','完了']:x.kind==='issue'?['保留','進行中','解決']:['未着手','進行中','完了'];const next=states[(states.indexOf(x.state)+1+states.length)%states.length];try{const {error}=await db.from('work_items').update({state:next}).eq('id',id);if(error)throw error;await cwLog(x.project_id,x.title+'：'+next);await cwRefresh();}catch(err){cwMsg(errText(err),true);}return;}
+if(b.dataset.cwEdit){const title=prompt('項目名',x.title);if(title===null)return;const note=prompt('メモ',x.note||'');if(note===null)return;const due=prompt('予定日（YYYY-MM-DD、空欄ならなし）',x.due_date||'');if(due===null||due&&!/^\d{4}-\d{2}-\d{2}$/.test(due))return;try{const {error}=await db.from('work_items').update({title:title.trim(),note,due_date:due||null}).eq('id',id);if(error)throw error;await cwLog(x.project_id,'項目を編集：'+title);await cwRefresh();if(x.kind==='next'&&x.project_id!==null&&title.trim()!==x.title)cwMsg('項目名を変更しました。既存工程の名称は変更されません。必要に応じて制作物の工程を編集してください。');}catch(err){cwMsg(errText(err),true);}return;}
+if(b.dataset.cwCycle){const states=x.kind==='material'?['未着手','購入待ち','注文済み','到着済み','完了']:x.kind==='issue'?['保留','進行中','解決']:['未着手','進行中','完了'];const next=states[(states.indexOf(x.state)+1+states.length)%states.length];try{const {error}=await db.from('work_items').update({state:next}).eq('id',id);if(error)throw error;
+ let syncNote='';
+ if(x.kind==='next'&&x.project_id!==null){try{const result=await cwLinkNextAction(Number(x.project_id),x.title,next==='完了',x.due_date,'update');if(!result.linked)syncNote='工程は未連動：'+result.reason;}catch(syncErr){syncNote='工程の同期失敗：'+cwErrorDetail(syncErr);}}
+ await cwLog(x.project_id,x.title+'：'+next);await cwRefresh();if(syncNote)cwMsg(syncNote,true);}catch(err){cwMsg(errText(err),true);}return;}
 if(!confirm(photo?'この写真を削除しますか？':'この項目を削除しますか？'))return;
 try{const {error}=await db.from(photo?'work_photos':'work_items').delete().eq('id',id);if(error)throw error;if(photo){const {error:storageError}=await db.storage.from('creator-archive').remove([x.image_path]);if(storageError)cwMsg('記録は削除しましたが、画像ファイル削除に失敗：'+errText(storageError),true);}await cwLog(x.project_id,(photo?'制作写真':'管理項目')+'を削除');await cwRefresh();}catch(err){cwMsg(errText(err),true);}
 });
