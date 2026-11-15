@@ -386,7 +386,8 @@ header{border-image:linear-gradient(90deg,transparent,#625968,transparent) 1}
 .cw-extra{background:#1c2635;border-color:#465670}.cw-extra .cw-entry{border-color:#425066}
 .cw-extra .cw-row button{flex:0 0 auto}.cw-extra button:focus-visible,.cw-tabs button:focus-visible{outline:3px solid #c8e1ff;outline-offset:2px}
 @media(max-width:420px){.cw-extra{padding:12px}.cw-extra .cw-row{align-items:stretch}.cw-extra .cw-row input[type=text],.cw-extra .cw-row select{flex-basis:100%}.cw-extra .cw-row button{width:100%}}
-#cwMessage:not([hidden]){display:block!important;padding:12px;border:1px solid #806f85;border-radius:10px;background:#292331;white-space:pre-wrap;overflow-wrap:anywhere;font-weight:650;margin-top:14px}\n</style></head><body><header><h1><span>CREATOR</span> <span>WORKSPACE</span></h1><p>クリエイター制作管理システム</p></header><main>
+#cwMessage:not([hidden]){display:block!important;padding:12px;border:1px solid #806f85;border-radius:10px;background:#292331;white-space:pre-wrap;overflow-wrap:anywhere;font-weight:650;margin-top:14px}\n#cwEditorHelp{line-height:1.75;margin:10px 0 18px;color:#c4c5d1}#cwAddButton{font-weight:700;min-height:48px}#cwItemForm input,#cwItemForm select{min-width:0}
+</style></head><body><header><h1><span>CREATOR</span> <span>WORKSPACE</span></h1><p>クリエイター制作管理システム</p></header><main>
 <section id="setup" class="card hidden"><h2>接続設定が必要です</h2><p id="setupMessage"></p></section>
 <section id="login" class="card hidden"><h2>ログイン</h2><form id="loginForm"><label>メールアドレス<input id="email" type="email" autocomplete="username" required></label><label>パスワード<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton">ログイン</button></form><p id="loginMessage" class="message hidden" role="status"></p><button type="button" class="linkbutton" id="forgotButton">パスワードを忘れた・初めて設定する</button></section>
 <section id="reset" class="card hidden"><h2>新しいパスワードを設定</h2><form id="resetForm"><label>新しいパスワード<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><label>確認用<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label><button id="resetButton">パスワードを保存する</button></form><p id="resetMessage" class="message hidden"></p></section>
@@ -409,7 +410,7 @@ header{border-image:linear-gradient(90deg,transparent,#625968,transparent) 1}
 <section class="cw-panel" data-cw-panel="photo" role="tabpanel" hidden><h3>WORK PHOTOS｜制作途中の写真</h3><form id="cwPhotoForm"><div class="cw-row"><input id="cwPhotoFile" type="file" accept="image/*" required><input id="cwPhotoCaption" type="text" maxlength="200" placeholder="写真の説明"><button type="submit">写真を追加</button></div></form><div class="cw-photo-grid" id="cwPhotos"></div>
 </section>
 <section class="cw-panel" data-cw-panel="history" role="tabpanel" hidden><h3>ACTIVITY｜更新履歴</h3><div id="cwActivity"></div></section>
-<div class="cw-editor" id="cwEditor"><h3 id="cwEditorTitle">作業を追加</h3><form id="cwItemForm"><div class="cw-row"><select id="cwKind"><option value="next">次にやること</option><option value="material">材料・購入品</option><option value="issue">問題・保留事項</option></select><input id="cwTitle" type="text" required maxlength="180" placeholder="項目名"><select id="cwState"><option value="未着手">未着手</option><option value="進行中">進行中</option><option value="購入待ち">購入待ち</option><option value="注文済み">注文済み</option><option value="到着済み">到着済み</option><option value="保留">保留</option><option value="解決">解決</option><option value="完了">完了</option></select></div><div class="cw-row"><input id="cwDue" type="date" aria-label="予定日"><button type="submit">項目を追加</button></div><textarea id="cwNote" placeholder="メモ（任意）"></textarea></form>
+<div class="cw-editor" id="cwEditor"><h3 id="cwEditorTitle">新しい作業を登録</h3><p id="cwEditorHelp" class="cw-small" aria-live="polite"></p><form id="cwItemForm"><div class="cw-row"><select id="cwKind"><option value="next">次にやること</option><option value="material">材料・購入品</option><option value="issue">問題・保留事項</option></select><input id="cwTitle" type="text" required maxlength="180" placeholder="例：肩パーツの造形" aria-label="登録する項目名"><select id="cwState"><option value="未着手">未着手</option><option value="進行中">進行中</option><option value="購入待ち">購入待ち</option><option value="注文済み">注文済み</option><option value="到着済み">到着済み</option><option value="保留">保留</option><option value="解決">解決</option><option value="完了">完了</option></select></div><div class="cw-row"><input id="cwDue" type="date" aria-label="予定日"><button type="submit" id="cwAddButton">作業を登録して工程に追加</button></div><textarea id="cwNote" placeholder="メモ（任意）"></textarea></form>
 </div>
 <p id="cwMessage" class="cw-small" role="status" aria-live="polite"></p>
 <div class="cw-actions"><button type="button" id="cwReload" class="secondary">最新情報に更新</button><button type="button" id="cwExport" class="secondary">バックアップ保存</button></div><p id="cwUpdated" class="cw-small"></p>
@@ -510,7 +511,23 @@ function cwDateWarnings(){const today=localDateKey(new Date()),p=cwSelected(),el
 const remain=(p.tasks||[]).filter(t=>!t.done);const diff=p.deadline?Math.round((new Date(p.deadline+'T12:00:00')-new Date(today+'T12:00:00'))/86400000):null;
 const text=diff===null?'納期未設定':diff<0?'納期超過 '+Math.abs(diff)+'日':diff===0?'本日が納期':'納期まであと '+diff+'日';
 el.innerHTML='<p class="'+(diff!==null&&diff<=3&&remain.length?'cw-warn':'cw-small')+'">'+esc(text)+' ／ 未完了工程 '+remain.length+'件</p>';}
-function cwItemCard(x){return '<div class="cw-entry"><strong>'+esc(x.title)+'</strong><div class="cw-meta">'+esc(x.state)+(x.due_date?' ／ 予定 '+esc(x.due_date):'')+'</div>'+(x.note?'<p>'+esc(x.note)+'</p>':'')+'<div class="cw-row"><button type="button" class="secondary" data-cw-cycle="'+Number(x.id)+'">'+(x.state==='完了'||x.state==='解決'?'未完了に戻す':x.kind==='material'?'状態を変更':'完了・解決')+'</button><button type="button" class="secondary" data-cw-edit="'+Number(x.id)+'">編集</button><button type="button" class="secondary" data-cw-delete="'+Number(x.id)+'">削除</button></div></div>';}
+function cwItemActionLabel(x){
+ if(x.kind==='issue')return x.state==='解決'?'保留に戻す':'解決済みにする';
+ if(x.kind==='material')return x.state==='到着済み'||x.state==='完了'?'状態を変更':'購入状況を進める';
+ return x.state==='完了'?'未完了に戻す':'完了にする';
+}
+function cwItemCard(x){return '<div class="cw-entry"><strong>'+esc(x.title)+'</strong><div class="cw-meta">'+esc(x.state)+(x.due_date?' ／ 予定 '+esc(x.due_date):'')+'</div>'+(x.note?'<p>'+esc(x.note)+'</p>':'')+'<div class="cw-row"><button type="button" class="secondary" data-cw-cycle="'+Number(x.id)+'">'+cwItemActionLabel(x)+'</button><button type="button" class="secondary" data-cw-edit="'+Number(x.id)+'">編集</button><button type="button" class="secondary" data-cw-delete="'+Number(x.id)+'">削除</button></div></div>';}
+function cwUpdateEditorCopy(){
+ const kind=cwEl('cwKind').value,isOther=cwProjectId()===null;
+ const labels={next:'新しい作業を登録',material:'材料・購入品を登録',issue:'問題・保留事項を登録'};
+ const buttons={next:'作業を登録して工程に追加',material:'材料・購入品を登録',issue:'問題・保留事項を登録'};
+ const helps={next:'選択中の制作物に作業を追加します。登録した作業は制作物の工程一覧にも反映され、進捗率の計算対象になります。',material:'購入する材料や備品を登録し、注文・到着状況を管理します。',issue:'制作中の問題や保留事項を記録します。'};
+ cwEl('cwEditorTitle').textContent=labels[kind];
+ cwEl('cwEditorHelp').textContent=isOther?'その他（テスト用）に登録します。制作物の工程や進捗率には反映されません。':cwProjectId()===undefined?'先に対象の制作物を選択してください。':helps[kind];
+ cwEl('cwAddButton').textContent=isOther?'テスト項目を登録':kind==='next'&&cwProjectId()===undefined?'作業を登録':buttons[kind];
+ cwEl('cwTitle').placeholder=kind==='next'?'例：肩パーツの造形':kind==='material'?'例：EVAフォーム 5mm':'例：装飾の寸法を再確認';
+}
+
 function cwRender(){cwDateWarnings();const selected=cwItems.filter(cwMatches);
 for(const [kind,el] of [['next','cwNext'],['material','cwMaterials'],['issue','cwIssues']]){const rows=selected.filter(x=>x.kind===kind);cwEl(el).innerHTML=rows.length?rows.map(cwItemCard).join(''):'<p class="cw-small">登録なし</p>';}
 cwEl('cwActivity').innerHTML=cwLogs.filter(cwMatches).slice(0,25).map(x=>'<div class="cw-entry"><div class="cw-meta">'+esc(new Date(x.created_at).toLocaleString('ja-JP'))+' ／ '+esc(x.actor||'共有ユーザー')+'</div>'+esc(x.action)+'</div>').join('')||'<p class="cw-small">更新履歴はありません。</p>';
@@ -527,7 +544,7 @@ function cwSelectTab(tab){
  cwEl('workTools').querySelectorAll('[data-cw-tab]').forEach(b=>{const active=b.dataset.cwTab===tab;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
  cwEl('workTools').querySelectorAll('[data-cw-panel]').forEach(p=>p.hidden=p.dataset.cwPanel!==tab);
  cwEl('cwEditor').hidden=!['next','material','issue'].includes(tab);
- if(!cwEl('cwEditor').hidden){const labels={next:'作業を追加',material:'材料・購入品を追加',issue:'問題・保留事項を追加'};cwEl('cwEditorTitle').textContent=labels[tab];cwEl('cwKind').value=tab;cwEl('cwState').value=tab==='material'?'購入待ち':tab==='issue'?'保留':'未着手';}
+ if(!cwEl('cwEditor').hidden){const labels={next:'作業を追加',material:'材料・購入品を追加',issue:'問題・保留事項を追加'};cwEl('cwEditorTitle').textContent=labels[tab];cwEl('cwKind').value=tab;cwEl('cwState').value=tab==='material'?'購入待ち':tab==='issue'?'保留':'未着手';cwUpdateEditorCopy();}
 }
 cwEl('workTools').querySelectorAll('[data-cw-tab]').forEach(b=>b.addEventListener('click',()=>cwSelectTab(b.dataset.cwTab)));
 cwSelectTab('next');
@@ -543,7 +560,8 @@ async function cwBackgroundRefresh(){if(!cwCanAutoRefresh()||cwAutoRefreshing)re
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-cwLastUpdated>30000)cwBackgroundRefresh();});
 window.addEventListener('focus',()=>{if(Date.now()-cwLastUpdated>30000)cwBackgroundRefresh();});
 setInterval(()=>{if(!document.hidden&&Date.now()-cwLastUpdated>90000)cwBackgroundRefresh();},90000);
-cwEl('cwProject').addEventListener('change',cwRender);
+cwEl('cwProject').addEventListener('change',()=>{cwRender();cwUpdateEditorCopy();});
+cwEl('cwKind').addEventListener('change',()=>{const kind=cwEl('cwKind').value;cwSelectTab(kind);});
 cwEl('cwReload').addEventListener('click',cwRefresh);
 async function cwLinkNextAction(projectId,title,done,dueDate,mode){
  if(projectId===null||projectId===undefined)return {linked:false,reason:'その他は工程連動の対象外'};
